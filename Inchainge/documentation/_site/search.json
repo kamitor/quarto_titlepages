@@ -1,0 +1,22 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "quarto titlepages",
+    "section": "",
+    "text": "quarto_titlepages is a Quarto extension for creating custom cover pages and title pages for PDF output. Pre-defined themes are available, but all themes can be customized. Static pages for copyright, dedication, etc. can be added after the title page. LaTeX users see footnote1.\nFrom command line, to install into a new directory:\nTo add to an existing directory or update the extension if there have been new releases, cd to the directory and then:",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#footnotes",
+    "href": "index.html#footnotes",
+    "title": "quarto titlepages",
+    "section": "Footnotes",
+    "text": "Footnotes\n\n\nIf you want to pass in your own title page or cover page files without using the extension framework see quarto_titlepages_v1.↩︎",
+    "crumbs": [
+      "Home"
+    ]
+  }
+]

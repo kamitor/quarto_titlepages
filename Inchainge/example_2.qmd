@@ -1,0 +1,104 @@
+---
+title: Inchainge Game Assistance - Study
+subtitle: Integrating Sustainability Reporting with Agent-Based Tools
+author:
+  - name: Christiaan Verhoef
+    affiliations:
+      - name: Social Chicken
+        address: Thorbeckelaan 35F
+      - name: Value Chain Hackers
+        address: Innovation Lab, Netherlands
+      - name: Windesheim University of Applied Sciences
+        address: Campus 2-6, Zwolle, Netherlands  
+      - name: University of Minnesota
+        department: Department of Mathematics
+    email: cg.verhoef@windesheim.nl    
+  - name: Michiel Steeman
+    affiliations:
+      - name: Inchainge B.V.
+        address: Emmalaan 5, 3732 GM De Bilt, Netherlands
+      - name: Weindesheim University of Applied Sciences
+        address: Campus 2-6, Zwolle, Netherlands
+    email: ma.steeman@windesheim.nl 
+bibliography: references.bib
+format: 
+  titlepage-pdf:
+    documentclass: scrbook
+    classoption: ["oneside", "open=any"]
+    number-sections: true
+    toc: true
+    lof: true
+    lot: true
+    titlepage: "bg-image"
+    titlepage-bg-image: "img/corner-bg.png"
+    titlepage-logo: "img/logo.png"
+    titlepage-header: "Value Chain Hackers"
+    titlepage-footer: |
+      Open Source Supply Chain Tools\
+      [https://github.com/valuechainhackers](https://github.com/valuechainhackers)\
+    coverpage: "great-wave"
+    keep-tex: true
+    include-in-header:
+      text: |
+        % delete. this is for the example w CZ diacritics
+        \usepackage{babel}
+        \babelprovide[import]{czech}
+---
+
+
+
+## Introduction
+
+Supply chain finance plays a pivotal role in aligning sustainable business practices with economic profitability. In this document, we explore how digital workspaces and AI tools can revolutionize transparency and sustainability reporting in supply chains. By integrating agent-based systems with forensic methodologies, businesses can optimize operations, reduce waste, and ensure long-term viability.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin eu tempor velit. Fusce accumsan ultrices fringilla. Praesent sed odio mi. Mauris non ligula turpis. Duis posuere lacus nec diam interdum dictum suscipit magna molestie. Vestibulum nibh dolor, interdum eget rhoncus ut, sodales eget justo.
+
+## Supporting Theory
+
+The central limit theorem in agent-based simulations can be applied as follows. Let $X_1, X_2, \ldots, X_n$ represent independent decisions made by agents in a supply chain network:
+
+$$
+S_n = \frac{X_1 + X_2 + \cdots + X_n}{n}
+      = \frac{1}{n}\sum_{i=1}^{n} X_i
+$$ {#eq-clt}
+
+As the number of agents increases, the overall performance converges toward a steady state, which approximates optimal resource allocation within the supply chain, as demonstrated in @eq-clt.
+
+## Materials and Methods
+
+Our primary toolset consists of agent-based modeling, forensic EDRM methodologies, and real-time reporting systems integrated into a shared workspace. We utilized the OpenWebGUI platform and Agent Chef for training and managing AI-driven supply chain models. Participants in this study used real-time dashboards to track key performance indicators, enabling swift adjustments based on real-world data.
+
+## Study Area
+
+The study took place within a simulated environment modeled after real-world supply chains. Workspaces were mapped out using co-creation digital platforms, allowing for collaborative interactions between various industry professionals and AI agents.
+
+![The collaborative workspace](img/vch-logo.png){#fig-logo}
+
+@fig-logo shows the virtual layout used by participants to visualize data streams in the supply chain network.
+
+## Results
+
+| Parameter     | Value |
+|:--------------|------:|
+| Financial ROI | 24%   |
+| Waste Reduced | 15%   |
+| Time Saved    | 10%   |
+
+: Table of Key Performance Indicators. {#tbl-results}
+
+## Discussion
+
+Our findings suggest that integrating agent-based tools into supply chain finance operations can dramatically improve efficiency, reduce resource waste, and enhance sustainability reporting. The Value Chain Hackers project demonstrated the potential for real-time data to drive decision-making and foster a culture of transparency.
+
+Curabitur efficitur in risus quis egestas. Suspendisse potenti. In ultricies ante accumsan lectus rhoncus, vel pharetra sem convallis.
+
+## Conclusion
+
+The alignment of AI tools with sustainability and finance goals presents a unique opportunity for businesses to both enhance their market viability and meet environmental standards. Further research into AI-driven supply chain reporting systems is crucial for ensuring continued progress toward sustainability goals.
+
+## Author Contributions
+
+- Chris: Project conceptualization, tool design, manuscript writing.
+- Michiel Steeman: Methodology development, supervision, review.
+- Chetana: Data analysis, validation, project coordination.
+- PJ88: Technical support, implementation of forensic tools.
