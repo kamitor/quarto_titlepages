@@ -32,7 +32,6 @@ Function Test-CommandExists {
     return [bool](Get-Command $CommandName -ErrorAction SilentlyContinue)
 }
 
-# Corrected Get-CommandPath Function
 Function Get-CommandPath {
     param($CommandName)
     $Cmd = Get-Command $CommandName -ErrorAction SilentlyContinue
@@ -133,9 +132,14 @@ Function Install-SoftwareLoop {
             If ($SoftwareName -eq "Quarto") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
 
             $CurrentVersion = ""
-            If ($SoftwareName -eq "Python") { $CurrentVersion = ($VersionOutput -split ' ')[-1] } 
-            ElseIf ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
-            ElseIf ($SoftwareName -eq "Quarto") { $CurrentVersion = $VersionOutput } # Quarto --version just returns the version string
+            If ($SoftwareName -eq "Python") { 
+                $VersionParts = $VersionOutput -split ' '
+                If ($VersionParts.Count -ge 2) { $CurrentVersion = $VersionParts[-1] }
+            } ElseIf ($SoftwareName -eq "R") { 
+                $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) 
+            } ElseIf ($SoftwareName -eq "Quarto") { 
+                $CurrentVersion = $VersionOutput # Quarto --version output is just the version string
+            }
 
             If ($CurrentVersion) {
                  Write-Info "$SoftwareName version: $CurrentVersion"
@@ -170,9 +174,14 @@ Function Install-SoftwareLoop {
                 If ($SoftwareName -eq "Quarto") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
                 
                 $CurrentVersion = ""
-                If ($SoftwareName -eq "Python") { $CurrentVersion = ($VersionOutput -split ' ')[-1] } 
-                ElseIf ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
-                ElseIf ($SoftwareName -eq "Quarto") { $CurrentVersion = $VersionOutput }
+                If ($SoftwareName -eq "Python") { 
+                    $VersionParts = $VersionOutput -split ' '
+                    If ($VersionParts.Count -ge 2) { $CurrentVersion = $VersionParts[-1] }
+                } ElseIf ($SoftwareName -eq "R") { 
+                    $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) 
+                } ElseIf ($SoftwareName -eq "Quarto") { 
+                    $CurrentVersion = $VersionOutput 
+                }
                 Write-Info "$SoftwareName version after install: $CurrentVersion"
             } catch {Write-Warning "Could not determine version for newly installed $SoftwareName."}
             return $true
@@ -192,60 +201,55 @@ If ($GlobalAbort) { Read-Host "Setup aborted. Press Enter to exit."; Exit 1 }
 
 
 Write-Step "2. Checking/Installing Python Packages"
-If ($PythonExePath) {
-    $PipExe = Get-CommandPath "pip"
-    If (-not $PipExe) { $PipExe = Get-CommandPath "pip3" }
-    
+If ($PythonExePath) { # Outer If: Only proceed if Python itself was found
     $PipToCall = $null
     $PipArgsPrefix = @()
 
-    If ($PipExe) {
-        $PipToCall = $PipExe
-    } ElseIf ($PythonExePath) { # If pip/pip3 not directly in PATH, try python -m pip
+    $DirectPipExe = Get-CommandPath "pip"
+    If (-not $DirectPipExe) { $DirectPipExe = Get-CommandPath "pip3" }
+
+    If ($DirectPipExe) {
+        $PipToCall = $DirectPipExe
+        Write-Info "Using direct pip command: $PipToCall"
+    } Else {
+        # No direct pip/pip3 found, so we use python -m pip
+        # $PythonExePath is guaranteed to be non-null here because of the outer If condition
         $PipToCall = $PythonExePath
         $PipArgsPrefix = "-m", "pip"
-    } 
-    # Removed the Else that set $PipToCall to $null, as If $PythonExePath is true, one of the above conditions should make $PipToCall non-null.
-    # If both $PipExe is null AND $PythonExePath is somehow null here (contradicting outer If), $PipToCall remains null.
+        Write-Info "Using Python to run pip: $PipToCall $($PipArgsPrefix -join ' ')"
+    }
 
-    If ($PipToCall) {
-        Write-Info "Using '$($PipToCall) $($PipArgsPrefix -join ' ')' for Python package management."
-        ForEach ($Package in $RequiredPythonPackages) {
-            Write-Info "Checking Python package: $Package"
-            $ShowArgs = $PipArgsPrefix + @("show", $Package)
-            & $PipToCall $ShowArgs *>$null # Suppress output for check
-            If ($LASTEXITCODE -eq 0) {
-                Write-Success "Python package '$Package' is already installed."
+    # At this point, $PipToCall MUST be set because $PythonExePath was true.
+    # We can now proceed to use $PipToCall for package management.
+    Write-Info "Proceeding with Python package management..."
+    ForEach ($Package in $RequiredPythonPackages) {
+        Write-Info "Checking Python package: $Package"
+        $ShowArgs = $PipArgsPrefix + @("show", $Package)
+        & $PipToCall $ShowArgs *>$null # Suppress output for check
+        If ($LASTEXITCODE -eq 0) {
+            Write-Success "Python package '$Package' is already installed."
+        } Else {
+            Write-Prompt "Python package '$Package' not found. Attempting to install..."
+            $InstallArgs = $PipArgsPrefix + @("install", $Package)
+            & $PipToCall $InstallArgs
+            If ($LASTEXITCODE -ne 0) {
+                Write-ErrorMsg "Failed to install Python package '$Package'. Please check errors above and try manually."
+                $GlobalAllGood = $false
             } Else {
-                Write-Prompt "Python package '$Package' not found. Attempting to install..."
-                $InstallArgs = $PipArgsPrefix + @("install", $Package)
-                & $PipToCall $InstallArgs
-                If ($LASTEXITCODE -ne 0) {
-                    Write-ErrorMsg "Failed to install Python package '$Package'. Please check errors above and try manually."
-                    $GlobalAllGood = $false
+                # Verify installation
+                & $PipToCall $ShowArgs *>$null # Suppress output for check
+                If ($LASTEXITCODE -eq 0) {
+                    Write-Success "Python package '$Package' installed and verified."
                 } Else {
-                    # Verify installation
-                    & $PipToCall $ShowArgs *>$null # Suppress output for check
-                    If ($LASTEXITCODE -eq 0) {
-                        Write-Success "Python package '$Package' installed and verified."
-                    } Else {
-                        Write-ErrorMsg "Installed Python package '$Package', but verification failed. Please check manually."
-                        $GlobalAllGood = $false
-                    }
+                    Write-ErrorMsg "Installed Python package '$Package', but verification failed. Please check manually."
+                    $GlobalAllGood = $false
                 }
             }
         }
-    } Else {
-        # This else means we couldn't determine how to call pip, even with a Python path.
-        # This situation implies $PythonExePath might be valid, but Get-Command for pip/pip3 failed,
-        # AND the logic to use $PythonExePath -m pip didn't set $PipToCall. This shouldn't happen with current logic.
-        # More likely, if outer $PythonExePath is false, this whole block is skipped.
-        # If $PythonExePath is true but $PipToCall is still null, it's an unexpected state.
-        Write-Warning "Could not determine a valid pip command. Skipping Python package installation."
-        $GlobalAllGood = $false
     }
-} Else { 
-    Write-Warning "Python not found, skipping Python package installation." 
+} Else { # This Else belongs to the outer 'If ($PythonExePath)'
+    Write-Warning "Python not found, skipping Python package installation."
+    # GlobalAllGood would have been set to false by Install-SoftwareLoop if Python wasn't found
 }
 
 
@@ -258,7 +262,6 @@ If ($GlobalAbort) { Read-Host "Setup aborted. Press Enter to exit."; Exit 1 }
 
 Write-Step "4. Checking/Installing R Packages"
 If ($RScriptExePath) {
-    # Pre-format the package list for R's c() function
     $RPackagesForRArray = $RequiredRPackages | ForEach-Object { "'$_'" } 
     $RPackagesStringForR = $RPackagesForRArray -join ", "
 
@@ -384,7 +387,7 @@ $EssentialFiles = @(
     (Join-Path "data" "cleaned_master.csv")
 )
 $EssentialDirs = @("data", "img", "tex", "fonts")
-$DataCleaningScriptName = "clean_data.py" # ADJUST THIS NAME IF YOUR SCRIPT IS CALLED DIFFERENTLY
+$DataCleaningScriptName = "clean_data.py" 
 $DataCleaningScriptPath = Join-Path $ProjectRoot $DataCleaningScriptName
 
 $ProjectStructureOK = $true
@@ -414,7 +417,6 @@ If ($ProjectStructureOK) {
 
 If (-not (Test-Path $DataCleaningScriptPath -PathType Leaf)) {
     Write-Warning "Data cleaning script '$DataCleaningScriptName' not found in project root. This might be a necessary pre-step."
-    # Not setting GlobalAllGood to false, as it's a workflow step, not a strict environment requirement for the script to run.
 }
 
 
