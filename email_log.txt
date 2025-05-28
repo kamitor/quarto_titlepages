@@ -1,0 +1,257 @@
+[2025-05-28 10:57:59] ⚠️ Skipping Vattenfall — invalid email: 'nan'
+[2025-05-28 10:57:59] ⚠️ Skipping The Coca-Cola Company — invalid email: 'nan'
+[2025-05-28 10:57:59] ⚠️ Skipping Suplacon — invalid email: 'nan'
+[2025-05-28 10:57:59] ⚠️ Skipping Scania Logistics NL — invalid email: 'nan'
+[2025-05-28 10:57:59] ⚠️ Skipping Scania Logistics NL — invalid email: 'nan'
+[2025-05-28 10:58:00] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:02] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:04] ⚠️ Skipping Rituals — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping NEDTECH — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Livin' Spas — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Corbion (1) — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Broshuis B.V. — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Brink Climate Systems — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Bosch Thermotechniek B.V. — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Bidfood — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping AVMC — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Avebe — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Avebe — invalid email: 'nan'
+[2025-05-28 10:58:04] ⚠️ Skipping Avebe — invalid email: 'nan'
+[2025-05-28 10:58:04] ❌ Report not found for Ales Metaaltechniek: reports\Ales_Metaaltechniek.pdf
+[2025-05-28 10:58:04] ❌ Report not found for Ales Metaaltechniek: reports\Ales_Metaaltechniek.pdf
+[2025-05-28 10:58:04] ❌ Report not found for Meubelgoedkoop: reports\Meubelgoedkoop.pdf
+[2025-05-28 10:58:05] ⚠️ Skipping Evofenedex — invalid email: 'nanne.schriek'
+[2025-05-28 10:58:05] ❌ Report not found for My-Max: reports\My_Max.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Livin' Spas: reports\Livin__Spas.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Mundo Recreatie: reports\Mundo_Recreatie.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Jansen2wielers: reports\Jansen2wielers.pdf
+[2025-05-28 10:58:05] ❌ Report not found for AWL-Techniek: reports\AWL_Techniek.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Shangle: reports\Shangle.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Fonteyn Outdoor Living Mall: reports\Fonteyn_Outdoor_Living_Mall.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Van Wolfswinkel wonen: reports\Van_Wolfswinkel_wonen.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Meubelcare.nl: reports\Meubelcare_nl.pdf
+[2025-05-28 10:58:05] ⚠️ Skipping Bruinhorst Tegels Online — invalid email: 'nan'
+[2025-05-28 10:58:05] ⚠️ Skipping Hermie.com — invalid email: 'nan'
+[2025-05-28 10:58:05] ❌ Report not found for Norvixx: reports\Norvixx.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Coltby: reports\Coltby.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Blue Sky Inn: reports\Blue_Sky_Inn.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Kees Smit tuinmeubelen: reports\Kees_Smit_tuinmeubelen.pdf
+[2025-05-28 10:58:05] ❌ Report not found for AP Nederland B.V.: reports\AP_Nederland_B_V_.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Teijin Aramid: reports\Teijin_Aramid.pdf
+[2025-05-28 10:58:05] ❌ Report not found for FrieslandCampina: reports\FrieslandCampina.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Rollecate B.V.: reports\Rollecate_B_V_.pdf
+[2025-05-28 10:58:05] ❌ Report not found for ME-AT Leeuwarden B.V.: reports\ME_AT_Leeuwarden_B_V_.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Hiab (Frameworks): reports\Hiab__Frameworks_.pdf
+[2025-05-28 10:58:05] ❌ Report not found for De Marne’s Fabrieken B.V.: reports\De_Marne_s_Fabrieken_B_V_.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Perfetti van Melle: reports\Perfetti_van_Melle.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Perfetti van Melle: reports\Perfetti_van_Melle.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Perfetti van Melle: reports\Perfetti_van_Melle.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Heuver Bandengroothandel B.V.: reports\Heuver_Bandengroothandel_B_V_.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Avebe: reports\Avebe.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Vadain: reports\Vadain.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Vadain: reports\Vadain.pdf
+[2025-05-28 10:58:05] ❌ Report not found for Kruitbosch: reports\Kruitbosch.pdf
+[2025-05-28 10:58:05] ✅ Sent to cg.verhoef@windesheim.nl (Rituals)
+[2025-05-28 10:58:07] ❌ Report not found for Corbion (1): reports\Corbion__1_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Corbion (1): reports\Corbion__1_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Corbion (1): reports\Corbion__1_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Bidfood: reports\Bidfood.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Givaudan: reports\Givaudan.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Spectrum Brands: reports\Spectrum_Brands.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Bosch Thermotechniek B.V.: reports\Bosch_Thermotechniek_B_V_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Henkel Global Supply Chain: reports\Henkel_Global_Supply_Chain.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Vandaglas: reports\Vandaglas.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Broshuis B.V.: reports\Broshuis_B_V_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Dun Agro B.V.: reports\Dun_Agro_B_V_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Upfield: reports\Upfield.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Cosun Beet Company: reports\Cosun_Beet_Company.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Denkavit: reports\Denkavit.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Freudenberg Performance Materials: reports\Freudenberg_Performance_Materials.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Danone: reports\Danone.pdf
+[2025-05-28 10:58:07] ❌ Report not found for J&J: reports\J_J.pdf
+[2025-05-28 10:58:07] ❌ Report not found for LyondellBasell: reports\LyondellBasell.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Corbion (1): reports\Corbion__1_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for CORAM: reports\CORAM.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Schaeffler Nederland BV: reports\Schaeffler_Nederland_BV.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Agrifac Machinery B.V.: reports\Agrifac_Machinery_B_V_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Lightwell B.V.: reports\Lightwell_B_V_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Radboudumc: reports\Radboudumc.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Fibrant: reports\Fibrant.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Axalta Coating Systems GmbH: reports\Axalta_Coating_Systems_GmbH.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Celanese: reports\Celanese.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Celanese: reports\Celanese.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Teleon Surgical: reports\Teleon_Surgical.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Alfa Laval Nijmegen: reports\Alfa_Laval_Nijmegen.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Royal Koopmans: reports\Royal_Koopmans.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Reginox B.V.: reports\Reginox_B_V_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Fast Forward Wheels bv: reports\Fast_Forward_Wheels_bv.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Kyocera: reports\Kyocera.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Dow: reports\Dow.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Samsung Electronics: reports\Samsung_Electronics.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Monta: reports\Monta.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Reginox B.V.: reports\Reginox_B_V_.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Vanclaes: reports\Vanclaes.pdf
+[2025-05-28 10:58:07] ❌ Report not found for Dr. Oetker: reports\Dr__Oetker.pdf
+[2025-05-28 10:58:07] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:09] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:11] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:13] ❌ Report not found for Pneutec: reports\Pneutec.pdf
+[2025-05-28 10:58:14] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:16] ❌ Report not found for Pneutec: reports\Pneutec.pdf
+[2025-05-28 10:58:16] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:18] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:18] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:20] ❌ Report not found for Foot Locker: reports\Foot_Locker.pdf
+[2025-05-28 10:58:21] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:23] ❌ Report not found for Directbouw Productie BV: reports\Directbouw_Productie_BV.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Medco EP Natuna: reports\Medco_EP_Natuna.pdf
+[2025-05-28 10:58:23] ❌ Report not found for BWS Sumatera IV Batam: reports\BWS_Sumatera_IV_Batam.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Pt Berdikari Karyatama Engineering: reports\Pt_Berdikari_Karyatama_Engineering.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Mitsubishi power: reports\Mitsubishi_power.pdf
+[2025-05-28 10:58:23] ❌ Report not found for PT Nusantara Regas: reports\PT_Nusantara_Regas.pdf
+[2025-05-28 10:58:23] ⚠️ Skipping PT. Sam Adi Karya — invalid email: 'nan'
+[2025-05-28 10:58:23] ❌ Report not found for PT Ineos Aromatics Indonesia: reports\PT_Ineos_Aromatics_Indonesia.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:23] ❌ Report not found for KPN: reports\KPN.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Samsung Electronics: reports\Samsung_Electronics.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Swinkels Family Brewers: reports\Swinkels_Family_Brewers.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Petrokimia Gresik: reports\Petrokimia_Gresik.pdf
+[2025-05-28 10:58:23] ❌ Report not found for PT PETROKIMIA GRESIK: reports\PT_PETROKIMIA_GRESIK.pdf
+[2025-05-28 10:58:23] ❌ Report not found for PT Petrokimia Gresik: reports\PT_Petrokimia_Gresik.pdf
+[2025-05-28 10:58:23] ❌ Report not found for PT Petrokimia Gresik: reports\PT_Petrokimia_Gresik.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Henkel: reports\Henkel.pdf
+[2025-05-28 10:58:23] ❌ Report not found for [Technology Company]: reports\_Technology_Company_.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Rollecate B.V.: reports\Rollecate_B_V_.pdf
+[2025-05-28 10:58:23] ❌ Report not found for ZiuZ: reports\ZiuZ.pdf
+[2025-05-28 10:58:23] ❌ Report not found for Diversey: reports\Diversey.pdf
+[2025-05-28 10:58:23] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 10:58:25] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 13:54:05] ⚠️ Skipping Vattenfall — invalid email: 'nan'
+[2025-05-28 13:54:05] ⚠️ Skipping The Coca-Cola Company — invalid email: 'nan'
+[2025-05-28 13:54:05] ⚠️ Skipping Suplacon — invalid email: 'nan'
+[2025-05-28 13:54:05] ⚠️ Skipping Scania Logistics NL — invalid email: 'nan'
+[2025-05-28 13:54:05] ⚠️ Skipping Scania Logistics NL — invalid email: 'nan'
+[2025-05-28 13:54:06] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 13:54:08] ✅ Sent to cg.verhoef@windesheim.nl (Scania Logistics NL)
+[2025-05-28 13:54:10] ⚠️ Skipping Rituals — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping NEDTECH — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Livin' Spas — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Corbion (1) — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Broshuis B.V. — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Brink Climate Systems — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Bosch Thermotechniek B.V. — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Bidfood — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping AVMC — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Avebe — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Avebe — invalid email: 'nan'
+[2025-05-28 13:54:10] ⚠️ Skipping Avebe — invalid email: 'nan'
+[2025-05-28 13:54:10] ✅ Sent to cg.verhoef@windesheim.nl (Ales Metaaltechniek)
+[2025-05-28 13:54:12] ✅ Sent to cg.verhoef@windesheim.nl (Ales Metaaltechniek)
+[2025-05-28 13:54:15] ✅ Sent to cg.verhoef@windesheim.nl (Meubelgoedkoop)
+[2025-05-28 13:54:17] ⚠️ Skipping Evofenedex — invalid email: 'nanne.schriek'
+[2025-05-28 13:54:17] ✅ Sent to cg.verhoef@windesheim.nl (My-Max)
+[2025-05-28 14:00:20] ⚠️ Skipping Vattenfall — invalid email: ''
+[2025-05-28 14:00:20] ⚠️ Skipping The Coca-Cola Company — invalid email: ''
+[2025-05-28 14:00:20] ⚠️ Skipping Suplacon — invalid email: ''
+[2025-05-28 14:00:20] ⚠️ Skipping Scania Logistics NL — invalid email: ''
+[2025-05-28 14:00:20] ⚠️ Skipping Scania Logistics NL — invalid email: ''
+[2025-05-28 14:00:20] ✅ Sent to arjan.muntenga@scania.com (actual recipient: cg.verhoef@windesheim.nl) for Scania Logistics NL
+[2025-05-28 14:00:33] ✅ Sent to jan.boersma@scania.com (actual recipient: cg.verhoef@windesheim.nl) for Scania Logistics NL
+[2025-05-28 14:00:35] ⚠️ Skipping Rituals — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping NEDTECH — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Livin' Spas — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Corbion (1) — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Broshuis B.V. — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Brink Climate Systems — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Bosch Thermotechniek B.V. — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Bidfood — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping AVMC — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:00:35] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:00:36] ✅ Sent to ddl@alesmetaaltechniek.nl (actual recipient: cg.verhoef@windesheim.nl) for Ales Metaaltechniek
+[2025-05-28 14:00:38] ✅ Sent to rs@alesmetaaltechniek.nl (actual recipient: cg.verhoef@windesheim.nl) for Ales Metaaltechniek
+[2025-05-28 14:00:40] ✅ Sent to info@meubelgoedkoop.nl (actual recipient: cg.verhoef@windesheim.nl) for Meubelgoedkoop
+[2025-05-28 14:00:42] ⚠️ Skipping Evofenedex — invalid email: 'nanne.schriek'
+[2025-05-28 14:00:42] ✅ Sent to info@my-max.nl (actual recipient: cg.verhoef@windesheim.nl) for My-Max
+[2025-05-28 14:00:45] ✅ Sent to henrick@livinspas.com (actual recipient: cg.verhoef@windesheim.nl) for Livin' Spas
+[2025-05-28 14:00:47] ✅ Sent to arjan@mundorecreatie.nl (actual recipient: cg.verhoef@windesheim.nl) for Mundo Recreatie
+[2025-05-28 14:00:50] ✅ Sent to lars@jansen2wielers.nl (actual recipient: cg.verhoef@windesheim.nl) for Jansen2wielers
+[2025-05-28 14:00:52] ✅ Sent to s.kamps@awl.nl (actual recipient: cg.verhoef@windesheim.nl) for AWL-Techniek
+[2025-05-28 14:00:54] ✅ Sent to info@shangle.nl (actual recipient: cg.verhoef@windesheim.nl) for Shangle
+[2025-05-28 14:00:56] ✅ Sent to janine@fonteyn.nl (actual recipient: cg.verhoef@windesheim.nl) for Fonteyn Outdoor Living Mall
+[2025-05-28 14:00:58] ✅ Sent to johanvw@vanwolfswinkelwonen.nl (actual recipient: cg.verhoef@windesheim.nl) for Van Wolfswinkel wonen
+[2025-05-28 14:01:00] ✅ Sent to johanvw@vanwolfswinkel.nl (actual recipient: cg.verhoef@windesheim.nl) for Meubelcare.nl
+[2025-05-28 14:01:02] ⚠️ Skipping Bruinhorst Tegels Online — invalid email: ''
+[2025-05-28 14:01:02] ⚠️ Skipping Hermie.com — invalid email: ''
+[2025-05-28 14:01:03] ✅ Sent to info@norvixx.nl (actual recipient: cg.verhoef@windesheim.nl) for Norvixx
+[2025-05-28 14:01:05] ✅ Sent to baruch.colthof@hotmail.com (actual recipient: cg.verhoef@windesheim.nl) for Coltby
+[2025-05-28 14:01:07] ✅ Sent to baruch.colthof@gmail.com (actual recipient: cg.verhoef@windesheim.nl) for Blue Sky Inn
+[2025-05-28 14:01:09] ✅ Sent to a.vandermeer@keessmit.nl (actual recipient: cg.verhoef@windesheim.nl) for Kees Smit tuinmeubelen
+[2025-05-28 14:01:11] ✅ Sent to e.wendel@apnederland.nl (actual recipient: cg.verhoef@windesheim.nl) for AP Nederland B.V.
+[2025-05-28 14:01:13] ✅ Sent to boris.fenneman@teijinaramid.com (actual recipient: cg.verhoef@windesheim.nl) for Teijin Aramid
+[2025-05-28 14:01:15] ✅ Sent to j.van.burgsteden@gmail.com (actual recipient: cg.verhoef@windesheim.nl) for FrieslandCampina
+[2025-05-28 14:01:18] ✅ Sent to l.zoolingen@rollecate.nl (actual recipient: cg.verhoef@windesheim.nl) for Rollecate B.V.
+[2025-05-28 14:01:20] ✅ Sent to ensingeline@gmail.com (actual recipient: cg.verhoef@windesheim.nl) for ME-AT Leeuwarden B.V.
+[2025-05-28 14:01:22] ✅ Sent to nielsstoffers@hotmail.com (actual recipient: cg.verhoef@windesheim.nl) for Hiab (Frameworks)
+[2025-05-28 14:01:24] ✅ Sent to p.devries@marnemosterd.nl (actual recipient: cg.verhoef@windesheim.nl) for De Marne’s Fabrieken B.V.
+[2025-05-28 14:01:26] ✅ Sent to bart.vervaart@perfettivanmelle.com (actual recipient: cg.verhoef@windesheim.nl) for Perfetti van Melle
+[2025-05-28 14:01:28] ✅ Sent to jos.van.nijnanten@perfettivanmelle.com (actual recipient: cg.verhoef@windesheim.nl) for Perfetti van Melle
+[2025-05-28 14:01:31] ✅ Sent to koert.van.de.pest@perfettivanmelle.com (actual recipient: cg.verhoef@windesheim.nl) for Perfetti van Melle
+[2025-05-28 14:01:33] ✅ Sent to d.makkinga@heuver.com (actual recipient: cg.verhoef@windesheim.nl) for Heuver Bandengroothandel B.V.
+[2025-05-28 14:01:35] ✅ Sent to ERIK.PRICKER@AVEBE.COM (actual recipient: cg.verhoef@windesheim.nl) for Avebe
+[2025-05-28 14:01:37] ✅ Sent to badmiraal@vadain.nl (actual recipient: cg.verhoef@windesheim.nl) for Vadain
+[2025-05-28 14:01:39] ✅ Sent to mvzanten@vadain.nl (actual recipient: cg.verhoef@windesheim.nl) for Vadain
+[2025-05-28 14:01:41] ✅ Sent to paul@kruitbosch.nl (actual recipient: cg.verhoef@windesheim.nl) for Kruitbosch
+[2025-05-28 14:02:35] ⚠️ Skipping Vattenfall — invalid email: ''
+[2025-05-28 14:02:35] ⚠️ Skipping The Coca-Cola Company — invalid email: ''
+[2025-05-28 14:02:35] ⚠️ Skipping Suplacon — invalid email: ''
+[2025-05-28 14:02:35] ⚠️ Skipping Scania Logistics NL — invalid email: ''
+[2025-05-28 14:02:35] ⚠️ Skipping Scania Logistics NL — invalid email: ''
+[2025-05-28 14:02:36] ✅ Sent to arjan.muntenga@scania.com (actual recipient: cg.verhoef@windesheim.nl) for Scania Logistics NL
+[2025-05-28 14:02:38] ✅ Sent to jan.boersma@scania.com (actual recipient: cg.verhoef@windesheim.nl) for Scania Logistics NL
+[2025-05-28 14:02:40] ⚠️ Skipping Rituals — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping NEDTECH — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Livin' Spas — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Corbion (1) — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Broshuis B.V. — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Brink Climate Systems — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Bosch Thermotechniek B.V. — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Bidfood — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping AVMC — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:02:40] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:02:40] ✅ Sent to ddl@alesmetaaltechniek.nl (actual recipient: cg.verhoef@windesheim.nl) for Ales Metaaltechniek
+[2025-05-28 14:02:42] ✅ Sent to rs@alesmetaaltechniek.nl (actual recipient: cg.verhoef@windesheim.nl) for Ales Metaaltechniek
+[2025-05-28 14:02:45] ✅ Sent to info@meubelgoedkoop.nl (actual recipient: cg.verhoef@windesheim.nl) for Meubelgoedkoop
+[2025-05-28 14:02:47] ⚠️ Skipping Evofenedex — invalid email: 'nanne.schriek'
+[2025-05-28 14:02:47] ✅ Sent to info@my-max.nl (actual recipient: cg.verhoef@windesheim.nl) for My-Max
+[2025-05-28 14:02:49] ✅ Sent to henrick@livinspas.com (actual recipient: cg.verhoef@windesheim.nl) for Livin' Spas
+[2025-05-28 14:03:53] ⚠️ Skipping Vattenfall — invalid email: ''
+[2025-05-28 14:03:53] ⚠️ Skipping The Coca-Cola Company — invalid email: ''
+[2025-05-28 14:03:53] ⚠️ Skipping Suplacon — invalid email: ''
+[2025-05-28 14:03:53] ⚠️ Skipping Scania Logistics NL — invalid email: ''
+[2025-05-28 14:03:53] ⚠️ Skipping Scania Logistics NL — invalid email: ''
+[2025-05-28 14:03:54] ✅ Sent to arjan.muntenga@scania.com (actual recipient: cg.verhoef@windesheim.nl) for Scania Logistics NL
+[2025-05-28 14:03:56] ✅ Sent to jan.boersma@scania.com (actual recipient: cg.verhoef@windesheim.nl) for Scania Logistics NL
+[2025-05-28 14:03:58] ⚠️ Skipping Rituals — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping NEDTECH — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Livin' Spas — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Corbion (1) — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Broshuis B.V. — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Brink Climate Systems — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Bosch Thermotechniek B.V. — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Bidfood — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping AVMC — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:03:58] ⚠️ Skipping Avebe — invalid email: ''
+[2025-05-28 14:03:58] ✅ Sent to ddl@alesmetaaltechniek.nl (actual recipient: cg.verhoef@windesheim.nl) for Ales Metaaltechniek
+[2025-05-28 14:04:01] ✅ Sent to rs@alesmetaaltechniek.nl (actual recipient: cg.verhoef@windesheim.nl) for Ales Metaaltechniek

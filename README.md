@@ -122,9 +122,9 @@ python generate_all_reports.py
 ---
 
 ### 📤 Automation Pipeline (In Progress)
-- [ ] Integrate Outlook for automatic email delivery of each report
-- [ ] Add `.env` or config file for Outlook credentials and recipients
-- [ ] Log all sent emails and failures to a local or shared log file
+- [x] Integrate Outlook for automatic email delivery of each report
+- [!] Add `.env` or config file for Outlook credentials and recipients
+- [x] Log all sent emails and failures to a local or shared log file
 - [ ] Allow optional delay between emails to avoid rate-limiting
 
 ---

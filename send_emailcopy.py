@@ -6,10 +6,34 @@ import win32com.client as win32
 CSV_PATH = "data/cleaned_master.csv"
 REPORTS_FOLDER = "reports"
 TEST_MODE = True
-TEST_EMAIL = "cg.verhoef@windesheim.nl"  # <- Change this to your address
+TEST_EMAIL = "cg.verhoef@windesheim.nl"  # Replace with your address
 
 def safe_filename(name):
     return "".join(c if c.isalnum() else "_" for c in str(name))
+
+def get_email_body(name, company, email, lang):
+    if lang == "dutch":
+        body = (
+            f"Beste {name},\n\n"
+            f"In de bijlage vind je de resilience scan voor {company}.\n\n"
+            "Als je vragen hebt, hoor ik het graag.\n\n"
+            "Met vriendelijke groet,\n\n"
+            "Christiaan Verhoef\n"
+            "Windesheim | Value Chain Hackers"
+        )
+    else:
+        body = (
+            f"Dear {name},\n\n"
+            f"Please find attached your resilience scan report for {company}.\n\n"
+            "If you have any questions, feel free to reach out.\n\n"
+            "Best regards,\n\n"
+            "Christiaan Verhoef\n"
+            "Windesheim | Value Chain Hackers"
+        )
+
+    if TEST_MODE:
+        body = f"[TEST MODE]\nOriginally intended for: {email}\n\n" + body
+    return body
 
 def send_emails():
     df = pd.read_csv(CSV_PATH)
@@ -27,6 +51,7 @@ def send_emails():
         company = str(row["company_name"])
         email = row["email_address"]
         name = row.get("name", "there")
+        lang = str(row.get("language", "")).lower().strip()
 
         if pd.isna(email) or "@" not in email:
             print(f"⚠️ Skipping {company} — invalid email")
@@ -48,24 +73,8 @@ def send_emails():
 
         mail = outlook.CreateItem(0)
         mail.To = email
-        mail.Subject = f"Your Resilience Scan Report – {company}"
-
-        body = (
-            f"Dear {name},\n\n"
-            f"Please find attached your resilience scan report for {company}.\n\n"
-            "If you have any questions, feel free to reach out.\n\n"
-            "Best regards,\n\n"
-            "Christiaan Verhoef\n"
-            "Windesheim | Value Chain Hackers"
-        )
-
-        if TEST_MODE:
-            body = (
-                f"[TEST MODE]\nThis email was originally intended for: {real_email}\n\n"
-                + body
-            )
-
-        mail.Body = body
+        mail.Subject = f"Resilience Scan Report – {company}"
+        mail.Body = get_email_body(name, company, real_email if TEST_MODE else email, lang)
         mail.Attachments.Add(os.path.abspath(attachment_path))
         mail.Send()
         sent_count += 1
