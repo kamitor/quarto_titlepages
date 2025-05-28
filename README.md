@@ -1,147 +1,134 @@
-# 📊 Resilience Scan Report Generator
 
-This project automates the generation of PDF reports for multiple companies based on their data using a single Quarto template.
+## 🚀 Getting Started: Installation & Setup
 
----
+Choose the installation method appropriate for your operating system.
 
-## ✅ Project Structure
+### Method 1: Automated Installer (Recommended for Windows Users)
 
-```
-.
-├── example_3.qmd              # Quarto template for the report
-├── generate_all_reports.py    # Python script to render all company reports
-├── data/
-│   └── cleaned_master.csv     # Input data file with company details
-├── reports/                   # Output folder for generated PDFs
-├── img/                       # Images used in the PDF cover/title
-│   ├── logo.png
-│   ├── corner-bg.png
-│   └── otter-bar.jpeg
-├── tex/
-│   ├── dedication.tex         # Custom dedication page
-│   └── copyright.tex          # Copyright/license notice
-```
+This script will check for and help install Python, R, Quarto, required packages, LaTeX (TinyTeX), and the custom project font.
 
----
+1.  **Download & Extract:**
+    *   If you received this project as a ZIP file, extract its **entire contents** to a convenient folder on your computer (e.g., `C:\Users\YourName\Documents\ResilienceProject`).
+    *   **Important:** Do not run any files directly from within the ZIP archive.
 
-## ⚙️ How It Works
+2.  **Run the Installer:**
+    *   Navigate into the extracted project folder.
+    *   Double-click the `run_installer.bat` file.
+    *   A PowerShell window will open. Follow the on-screen prompts carefully.
+    *   The script will guide you through downloading and installing any missing software. This process, especially the LaTeX (TinyTeX) installation, can take several minutes and requires an internet connection.
 
-1. The Python script:
-   - Loads `cleaned_master.csv`
-   - Iterates through all unique company names
-   - Renders a separate PDF report per company using the Quarto template
-   - Saves each report in the `reports/` folder
-   - Skips reports already generated
+3.  **Post-Installation:**
+    *   Once the script completes (ideally with success messages), your environment should be ready.
+    *   A system restart or logging out/in might be necessary for the custom font to be fully recognized by all applications.
 
-2. The Quarto template:
-   - Accepts a parameter `company`
-   - Filters data based on that company name
-   - Renders a personalized PDF for each company
-   - Includes a custom cover page, title page, and formatted design
+### Method 2: Manual Installation (For macOS, Linux, or Advanced Windows Users)
 
----
+Ensure all components are correctly installed and added to your system's PATH.
 
-## 🧪 Features Tested
+1.  **Python (3.8+):**
+    *   Install from [python.org](https://www.python.org/downloads/).
+    *   Install required packages:
+        ```bash
+        pip install pandas pywin32
+        ```
+        *(Note: `pywin32` is Windows-specific, for Outlook integration).*
 
-- Parameterized Quarto rendering using `-P company:"<Name>"`
-- CSV reading with flexible encodings
-- Clean file naming for output
-- PDF generation via XeLaTeX
-- Echo, warnings, and messages disabled in final output
-- Custom cover page and title page design using `quarto-titlepages`
+2.  **R (4.0+):**
+    *   Install from [cran.r-project.org](https://cran.r-project.org/).
+    *   Install required R packages (open R console):
+        ```R
+        install.packages(c("readr", "dplyr", "stringr", "tidyr", "ggplot2", "fmsb", "scales"))
+        ```
 
----
+3.  **Quarto CLI (1.3+):**
+    *   Install from [quarto.org](https://quarto.org/docs/get-started/).
 
-## 💻 Install Guide
+4.  **LaTeX Distribution:**
+    *   **Recommended for Quarto:** Install TinyTeX by running `quarto install tinytex` in your terminal (may require admin rights).
+    *   **Alternatively:** Install a full distribution like TeX Live (all platforms), MiKTeX (Windows), or MacTeX (macOS). Ensure XeLaTeX is included.
 
-### 1. Install Python 3
-
-https://www.python.org/downloads/  
-Make sure `python` and `pip` are in your PATH.
-
-### 2. Install Required Python Packages
-
-```bash
-pip install pandas
-```
-
-### 3. Install Quarto
-
-https://quarto.org/docs/get-started/
-
-Make sure `quarto` is accessible from the command line.
-
-### 4. Install LaTeX
-
-Install a full TeX distribution that includes XeLaTeX:
-
-- **Windows**: [TeX Live](https://tug.org/texlive/windows.html) or [MiKTeX](https://miktex.org/)
-- **Linux**: `sudo apt install texlive-full`
-- **Mac**: [MacTeX](https://tug.org/mactex/)
+5.  **Custom Font (`QTDublinIrish.otf`):**
+    *   Locate `QTDublinIrish.otf` in the `fonts/` directory of this project.
+    *   Install it on your system:
+        *   **Windows:** Right-click the file -> "Install" or "Install for all users".
+        *   **macOS:** Double-click file -> "Install Font" in Font Book.
+        *   **Linux:** Copy to `~/.fonts/` or `/usr/local/share/fonts/`, then run `fc-cache -fv`.
+    *   A system restart or logout/login might be needed.
 
 ---
 
-## 🏁 Run
+## ⚙️ How to Use
 
-To generate the reports:
+1.  **Navigate to Project Directory:**
+    Open your terminal (Command Prompt, PowerShell, Bash, etc.) and change to the directory where you extracted/cloned the project files.
+    ```bash
+    cd path/to/your/ResilienceProject
+    ```
 
-```bash
-python generate_all_reports.py
-```
+2.  **Generate PDF Reports:**
+    Run the report generation script:
+    ```bash
+    python generate_reports.py
+    ```
+    Generated PDF reports will be saved in the `reports/` subfolder.
 
----
-
-## 🚧 Next Steps
-
-## ✅ Progress Checklist: Quarto Report Automation System
-
-### 🟩 Core Functionality (Done)
-- [x] Created Data-Clean Function for CSV
-- [x] Load cleaned company data from `data/cleaned_master.csv`
-- [x] Generate individual PDF reports per company using Quarto and parameters
-- [x] Use custom LaTeX-styled `example_3.qmd` template with branding
-- [x] Store generated reports in the `reports/` folder
-- [x] Skip already generated reports to save time
-
----
-
-### 🔧 Technical Improvements (Planned)
-- [ ] Add basic error handling for missing/malformed CSV data
-- [ ] Refactor script for better retry support and clearer logging
-- [ ] Parametrize output formats (PDF, HTML)
-- [ ] Automatically move output file instead of relying on Quarto to put it in the right location
+3.  **Send Reports via Email (Windows with Outlook):**
+    *   Ensure PDF reports have been generated first.
+    *   **Configuration:** Open `send_emails.py` in a text editor:
+        *   Set `TEST_MODE = False` for sending to actual recipient email addresses found in `cleaned_master.csv`.
+        *   If `TEST_MODE = True`, emails will be sent to the address specified in `TEST_EMAIL`. Modify this as needed for your testing.
+    *   Run the email script:
+        ```bash
+        python send_emails.py
+        ```
+    *   Microsoft Outlook must be running or able to be started by the script.
 
 ---
 
-### 📊 Report Content Enhancements (Planned)
-- [ ] Add summary statistics per company (e.g., score, compliance level, key metrics)
-- [ ] Add basic plots (e.g., bar chart of key indicators)
-- [ ] Ensure template gracefully handles missing data per company
-- [ ] Modularize template to adapt to future layout/styling changes
+## 🛠️ Understanding Key Components
+
+*   **`generate_reports.py`:** This Python script is the main engine for PDF creation. It reads `data/cleaned_master.csv`, iterates through each unique company, and calls the Quarto CLI to render the `example_3.qmd` template with company-specific parameters.
+*   **`send_emails.py`:** This Python script (for Windows) uses `pywin32` to interact with Microsoft Outlook. It reads company and email data, finds corresponding PDFs in the `reports/` folder, and sends them as attachments.
+*   **`example_3.qmd`:** This Quarto Markdown file is the blueprint for each PDF. It contains:
+    *   YAML frontmatter for document metadata, LaTeX options, and custom page elements.
+    *   R code chunks (``` `{r}` ```) to load data for the specific company, perform calculations (e.g., pillar scores), and generate plots (e.g., radar charts using `ggplot2` and `fmsb`).
+    *   Markdown text which includes dynamic values from R using inline code (`r params$company`).
+    *   LaTeX commands and environments for fine-grained control over PDF appearance.
+*   **`data/cleaned_master.csv`:** The central CSV file containing all data points. Ensure this file is correctly formatted and populated for accurate report generation. The `company_name` column is crucial for identifying unique entities.
 
 ---
 
-### 📤 Automation Pipeline (In Progress)
-- [x] Integrate Outlook for automatic email delivery of each report
-- [!] Add `.env` or config file for Outlook credentials and recipients
-- [x] Log all sent emails and failures to a local or shared log file
-- [ ] Allow optional delay between emails to avoid rate-limiting
+## ⚠️ Troubleshooting Common Issues
+
+*   **Font Not Displaying Correctly in PDF:**
+    *   Ensure `QTDublinIrish.otf` (from the `fonts/` folder) was installed correctly on your system.
+    *   Try restarting your computer or logging out and back in, as LaTeX sometimes requires this to recognize new system fonts.
+*   **LaTeX/PDF Generation Errors (e.g., "Error producing PDF"):**
+    *   If using the Windows installer, re-run `run_installer.bat` and ensure TinyTeX installation (Step 6 in the script) completes successfully. This might require admin rights.
+    *   Ensure your LaTeX distribution is complete and `xelatex` is available.
+    *   Check the terminal output from `python generate_reports.py` for specific LaTeX error messages. These can often be searched online for solutions. If `example_3.qmd` has `keep-tex: true`, you can inspect the intermediate `.tex` file for clues.
+*   **Python or R Package Errors (e.g., "ModuleNotFound", "package not found"):**
+    *   If using the Windows installer, ensure it completed without errors for package installation.
+    *   Manually install missing packages as described in the "Manual Installation" section.
+    *   Check your internet connection and firewall/proxy settings if downloads fail.
+*   **`send_emails.py` Fails (Windows/Outlook):**
+    *   Confirm Microsoft Outlook is installed, configured with an email account, and preferably running.
+    *   Ensure the `pywin32` Python package is installed.
+*   **PowerShell Execution Policy (Windows Installer):**
+    *   The `run_installer.bat` attempts to bypass the execution policy for its session. If it still fails, you might need to temporarily change your system's policy. Open PowerShell as Administrator and run `Set-ExecutionPolicy RemoteSigned -Scope Process -Force`, then try the `.bat` file again.
 
 ---
 
-### 🧪 Future Readiness (Stretch Goals)
-- [ ] Allow support for multiple rows per company (grouped aggregation)
-- [ ] Add tagging or categorization logic (e.g., “High Risk”, “Compliant”, etc.)
-- [ ] Publish summary dashboard (Quarto HTML or Streamlit) showing company status
-- [ ] Use GitHub Actions or cron job to re-generate reports weekly/monthly
+## 💡 Project Context & Future Development
+
+This system was developed as part of the ResilienceScan initiative at Hogeschool Windesheim to streamline the creation and dissemination of strategic resilience profiles.
+
+Potential future enhancements include:
+*   More robust error handling and logging.
+*   Configuration files for easier customization (e.g., email settings, output paths).
+*   Support for additional output formats (e.g., HTML).
+*   A web-based interface or dashboard for report management.
 
 ---
 
-### 🚨 Watch-Outs
-- [ ] Ensure the `example_3.qmd` template always includes a fallback if no data is found
-- [ ] Avoid reusing output names that could clash (sanitize filenames carefully)
-- [ ] Monitor `.quarto` folder lock issues (XeLaTeX temp files)
-
----
-
-Built with ❤️ for the ResilienceScan project at Hogeschool Windesheim.
+Thank you for using the Resilience Report Generator!
