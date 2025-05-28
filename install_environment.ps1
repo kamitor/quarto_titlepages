@@ -102,13 +102,15 @@ Function Install-SoftwareLoop {
         Write-Info "$SoftwareName found at: $ExePath"
         try {
             $VersionOutput = ""
-            If ($SoftwareName -eq "Python") { $VersionOutput = (python --version 2>&1).Trim() }
-            If ($SoftwareName -eq "R") { $VersionOutput = (Rscript -e "cat(R.version.string)" 2>&1) }
-            If ($SoftwareName -eq "Quarto") { $VersionOutput = (quarto --version 2>&1).Trim() }
+            # Using & call operator for robustness, especially if paths have spaces
+            If ($SoftwareName -eq "Python") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
+            If ($SoftwareName -eq "R") { $VersionOutput = (& $ExePath -e "cat(R.version.string)" 2>&1) }
+            If ($SoftwareName -eq "Quarto") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
 
-            $CurrentVersion = ($VersionOutput -split ' ')[-1] # Basic parsing, might need adjustment
+            $CurrentVersion = ($VersionOutput -split ' ')[-1]
+            If ($SoftwareName -eq "Python") { $CurrentVersion = ($VersionOutput -split ' ')[-1] } # Python version is usually "Python X.Y.Z"
             If ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
-
+            # Quarto version is usually just "X.Y.Z"
 
             If ($CurrentVersion) {
                  Write-Info "$SoftwareName version: $CurrentVersion"
@@ -118,12 +120,12 @@ Function Install-SoftwareLoop {
                     Read-Host "Press Enter to continue with the current version, or Ctrl+C to stop and upgrade."
                 }
             } Else {
-                Write-Warning "Could not determine $SoftwareName version automatically."
+                Write-Warning "Could not determine $SoftwareName version automatically from output: $VersionOutput"
             }
             $ExePathOut.Value = $ExePath
             return $true
         } catch {
-            Write-Warning "Found $SoftwareName, but could not verify version. Assuming it's functional."
+            Write-Warning "Found $SoftwareName, but could not verify version due to: $($_.Exception.Message). Assuming it's functional."
             $ExePathOut.Value = $ExePath
             return $true
         }
@@ -136,6 +138,16 @@ Function Install-SoftwareLoop {
         If ($ExePath) {
             Write-Success "$SoftwareName found after manual installation."
             $ExePathOut.Value = $ExePath
+            # Re-run version check part of logic
+            try {
+                $VersionOutput = ""
+                If ($SoftwareName -eq "Python") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
+                If ($SoftwareName -eq "R") { $VersionOutput = (& $ExePath -e "cat(R.version.string)" 2>&1) }
+                If ($SoftwareName -eq "Quarto") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
+                $CurrentVersion = ($VersionOutput -split ' ')[-1]
+                If ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
+                Write-Info "$SoftwareName version after install: $CurrentVersion"
+            } catch {Write-Warning "Could not determine version for newly installed $SoftwareName."}
             return $true
         } Else {
             Write-ErrorMsg "$SoftwareName still not found. Please install it correctly and re-run this script."
@@ -156,27 +168,42 @@ Write-Step "2. Checking/Installing Python Packages"
 If ($PythonExePath) {
     $PipExe = Get-CommandPath "pip"
     If (-not $PipExe) { $PipExe = Get-CommandPath "pip3" }
-    $PipCmd = if ($PipExe) { $PipExe } else { "$PythonExePath -m pip" }
-    Write-Info "Using '$PipCmd' for Python package management."
+    # Determine how to call pip correctly
+    $PipArgsPrefix = @()
+    If ($PipExe) {
+        $PipToCall = $PipExe
+    } ElseIf ($PythonExePath) {
+        $PipToCall = $PythonExePath
+        $PipArgsPrefix = "-m", "pip"
+    } Else {
+        Write-Warning "Cannot determine how to run pip. Skipping Python package installation."
+        $PipToCall = $null # Ensure it's null if not found
+    }
 
-    ForEach ($Package in $RequiredPythonPackages) {
-        Write-Info "Checking Python package: $Package"
-        $IsInstalledCheck = Invoke-Expression "$PipCmd show $Package" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
-        If ($LASTEXITCODE -eq 0) {
-            Write-Success "Python package '$Package' is already installed."
-        } Else {
-            Write-Prompt "Python package '$Package' not found. Attempting to install..."
-            Invoke-Expression "$PipCmd install $Package"
-            If ($LASTEXITCODE -ne 0) {
-                Write-ErrorMsg "Failed to install Python package '$Package'. Please check errors above and try manually: $PipCmd install $Package"
-                $GlobalAllGood = $false
+    If ($PipToCall) {
+        Write-Info "Using '$($PipToCall) $($PipArgsPrefix -join ' ')' for Python package management."
+        ForEach ($Package in $RequiredPythonPackages) {
+            Write-Info "Checking Python package: $Package"
+            $ShowArgs = $PipArgsPrefix + @("show", $Package)
+            & $PipToCall $ShowArgs *>$null # Suppress output for check
+            If ($LASTEXITCODE -eq 0) {
+                Write-Success "Python package '$Package' is already installed."
             } Else {
-                $VerifyInstall = Invoke-Expression "$PipCmd show $Package" -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
-                If ($LASTEXITCODE -eq 0) {
-                    Write-Success "Python package '$Package' installed and verified."
-                } Else {
-                    Write-ErrorMsg "Installed Python package '$Package', but verification failed. Please check manually."
+                Write-Prompt "Python package '$Package' not found. Attempting to install..."
+                $InstallArgs = $PipArgsPrefix + @("install", $Package)
+                & $PipToCall $InstallArgs
+                If ($LASTEXITCODE -ne 0) {
+                    Write-ErrorMsg "Failed to install Python package '$Package'. Please check errors above and try manually."
                     $GlobalAllGood = $false
+                } Else {
+                    # Verify installation
+                    & $PipToCall $ShowArgs *>$null # Suppress output for check
+                    If ($LASTEXITCODE -eq 0) {
+                        Write-Success "Python package '$Package' installed and verified."
+                    } Else {
+                        Write-ErrorMsg "Installed Python package '$Package', but verification failed. Please check manually."
+                        $GlobalAllGood = $false
+                    }
                 }
             }
         }
@@ -194,7 +221,7 @@ If ($GlobalAbort) { Read-Host "Setup aborted. Press Enter to exit."; Exit 1 }
 Write-Step "4. Checking/Installing R Packages"
 If ($RScriptExePath) {
     $RInstallScriptContent = @"
-    options(Ncpus = max(1, parallel::detectCores(logical=FALSE) %/% 2))
+    options(Ncpus = max(1, parallel::detectCores(logical=FALSE) %/% 2, na.rm = TRUE)) # Added na.rm for detectCores
     required_pkgs <- c('$(($RequiredRPackages -join "', '")')')
     installed_pkgs <- rownames(installed.packages())
     missing_pkgs <- required_pkgs[!required_pkgs %in% installed_pkgs]
@@ -244,8 +271,8 @@ If ($GlobalAbort) { Read-Host "Setup aborted. Press Enter to exit."; Exit 1 }
 Write-Step "6. Checking/Installing TinyTeX (LaTeX for Quarto)"
 If ($QuartoExePath) {
     Write-Info "Quarto uses TinyTeX for PDF generation."
-    Write-Info "Checking existing LaTeX setup with 'quarto check pdf'..."
-    $QuartoCheckOutput = Invoke-Expression "$QuartoExePath check pdf" 2>&1
+    Write-Info "Checking existing LaTeX setup with '$QuartoExePath check pdf'..."
+    $QuartoCheckOutput = & $QuartoExePath check pdf 2>&1
     Write-Host $QuartoCheckOutput -ForegroundColorGray
 
     If ($QuartoCheckOutput -match "LaTeX.+OK") {
@@ -253,28 +280,28 @@ If ($QuartoExePath) {
     } Else {
         Write-Warning "Quarto check indicates LaTeX might not be fully configured or found."
         Write-Prompt "This step can take a significant amount of time (5-15 mins) and download ~200-300MB."
-        $choice = Read-Host "Do you want to run 'quarto install tinytex' to install/reinstall LaTeX? (Y/N)"
+        $choice = Read-Host "Do you want to run '$QuartoExePath install tinytex' to install/reinstall LaTeX? (Y/N)"
         If ($choice -match '^[Yy]$') {
             Write-Host "Attempting to install/update TinyTeX via Quarto... This may require Administrator rights."
             try {
-                Invoke-Expression "$QuartoExePath install tinytex"
+                & $QuartoExePath install tinytex
                 If ($LASTEXITCODE -ne 0) {
                     Write-ErrorMsg "TinyTeX installation via Quarto failed. Check output above."
                     Write-Warning "You might need to run this PowerShell script as Administrator, or install a full LaTeX distribution like MiKTeX manually."
                     $GlobalAllGood = $false
                 } Else {
                     Write-Success "TinyTeX installation command executed by Quarto. Verifying..."
-                    $QuartoCheckAfterOutput = Invoke-Expression "$QuartoExePath check pdf" 2>&1
+                    $QuartoCheckAfterOutput = & $QuartoExePath check pdf 2>&1
                     Write-Host $QuartoCheckAfterOutput -ForegroundColorGray
                     If ($QuartoCheckAfterOutput -match "LaTeX.+OK") {
                          Write-Success "Quarto now reports a working LaTeX installation."
                     } Else {
-                        Write-ErrorMsg "TinyTeX installation attempted, but 'quarto check pdf' still reports issues."
+                        Write-ErrorMsg "TinyTeX installation attempted, but '$QuartoExePath check pdf' still reports issues."
                         $GlobalAllGood = $false
                     }
                 }
             } catch {
-                Write-ErrorMsg "Error during 'quarto install tinytex': $($_.Exception.Message)"
+                Write-ErrorMsg "Error during '$QuartoExePath install tinytex': $($_.Exception.Message)"
                 Write-Warning "You might need to run this PowerShell script as Administrator."
                 $GlobalAllGood = $false
             }
@@ -303,7 +330,7 @@ If (-not (Test-Path $CustomFontSourcePath)) {
         } Else {
             Write-Warning "Font '$CustomFontFileName' still not detected in system fonts after manual install attempt."
             Write-Warning "A system restart OR logging out and back in might be required for the font to be recognized."
-            $GlobalAllGood = $false
+            $GlobalAllGood = $false # Keep this as a warning, user might proceed and it might work after restart
         }
     }
 }
@@ -315,6 +342,10 @@ $EssentialFiles = @(
     (Join-Path "data" "cleaned_master.csv")
 )
 $EssentialDirs = @("data", "img", "tex", "fonts")
+# Also check the new Python script for cleaning data if it's considered essential for setup
+# For now, assuming it's a user-run step. If it's essential *before* generate_reports, add it.
+# Example: "clean_data.py" (replace with actual name if different)
+
 $ProjectStructureOK = $true
 
 ForEach ($ItemName in $EssentialFiles) {
@@ -340,6 +371,13 @@ If ($ProjectStructureOK) {
     Write-Warning "Some essential project files/folders are missing. Please ensure the project is complete."
 }
 
+# Check for the new data cleaning script
+$DataCleaningScriptName = "clean_data.py" # Assuming this is the name of your cleaning script
+$DataCleaningScriptPath = Join-Path $ProjectRoot $DataCleaningScriptName
+If (-not (Test-Path $DataCleaningScriptPath -PathType Leaf)) {
+    Write-Warning "Data cleaning script '$DataCleaningScriptName' not found in project root. This might be a necessary pre-step."
+}
+
 
 Write-Step "9. Microsoft Outlook Prerequisite (for sending emails)"
 Write-Info "The 'send_emails.py' script requires Microsoft Outlook to be installed and configured on this computer."
@@ -353,11 +391,13 @@ Write-Host "==================================================================="
 If ($GlobalAllGood -and $PythonExePath -and $RScriptExePath -and $QuartoExePath) {
     Write-Success "Core software (Python, R, Quarto) and project structure appear to be configured."
     Write-Info "You should now be able to run the project scripts."
-    Write-Info "`nTo generate reports:"
-    Write-Info "  In a terminal (like PowerShell or Command Prompt) in this project folder ($ProjectRoot),"
-    Write-Info "  run:  python generate_reports.py"
-    Write-Info "`nTo send emails (after reports are generated and Outlook is configured):"
-    Write-Info "  Run:  python send_emails.py"
+    Write-Info "`nWorkflow reminder:"
+    If (Test-Path $DataCleaningScriptPath -PathType Leaf) {
+        Write-Info "  1. Ensure your raw data is in place (e.g., './data/Resilience - MasterDatabase(MasterData).csv')."
+        Write-Info "  2. Run the data cleaning script: python $DataCleaningScriptName"
+    }
+    Write-Info "  3. To generate reports: python generate_reports.py"
+    Write-Info "  4. To send emails (after reports are generated and Outlook is configured): python send_emails.py"
     Write-Info ""
     Write-Warning "If PDF generation fails with font errors, ensure '$CustomFontFileName' was installed correctly (Step 7) and consider restarting your computer or logging out/in."
     Write-Warning "If LaTeX errors persist, ensure TinyTeX was installed successfully (Step 6) or consider a manual installation of MiKTeX/TeX Live."
