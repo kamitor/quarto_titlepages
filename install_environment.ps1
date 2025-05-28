@@ -20,21 +20,26 @@ $CustomFontSourcePath = Join-Path $ProjectRoot "fonts" $CustomFontFileName
 $SystemFontsDir = Join-Path $env:WINDIR "Fonts"
 $InstalledFontPath = Join-Path $SystemFontsDir $CustomFontFileName
 
-Function Write-Step { param($Message) Write-Host "`n--- $Message ---" -ForegroundColor Cyan }
-Function Write-Success { param($Message) Write-Host "[SUCCESS] $Message" -ForegroundColor Green }
-Function Write-Warning { param($Message) Write-Host "[WARNING] $Message" -ForegroundColor Yellow }
-Function Write-ErrorMsg { param($Message) Write-Host "[ERROR] $Message" -ForegroundColor Red }
-Function Write-Info { param($Message) Write-Host "[INFO] $Message" }
-Function Write-Prompt { param($Message) Write-Host "[PROMPT] $Message" -ForegroundColor Magenta }
+Function Write-Step { param($Message) Write-Host; Write-Host "--- $($Message) ---" -ForegroundColor Cyan }
+Function Write-Success { param($Message) Write-Host "[SUCCESS] $($Message)" -ForegroundColor Green }
+Function Write-Warning { param($Message) Write-Host "[WARNING] $($Message)" -ForegroundColor Yellow }
+Function Write-ErrorMsg { param($Message) Write-Host "[ERROR] $($Message)" -ForegroundColor Red }
+Function Write-Info { param($Message) Write-Host "[INFO] $($Message)" }
+Function Write-Prompt { param($Message) Write-Host "[PROMPT] $($Message)" -ForegroundColor Magenta }
 
 Function Test-CommandExists {
     param($CommandName)
     return [bool](Get-Command $CommandName -ErrorAction SilentlyContinue)
 }
 
+# Corrected Get-CommandPath Function
 Function Get-CommandPath {
     param($CommandName)
-    return (Get-Command $CommandName -ErrorAction SilentlyContinue).Source
+    $Cmd = Get-Command $CommandName -ErrorAction SilentlyContinue
+    If ($Cmd) {
+        return $Cmd.Source
+    }
+    return $null
 }
 
 Function Compare-SoftwareVersions {
@@ -123,15 +128,14 @@ Function Install-SoftwareLoop {
         Write-Info "$SoftwareName found at: $ExePath"
         try {
             $VersionOutput = ""
-            # Using & call operator for robustness, especially if paths have spaces
             If ($SoftwareName -eq "Python") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
             If ($SoftwareName -eq "R") { $VersionOutput = (& $ExePath -e "cat(R.version.string)" 2>&1) }
             If ($SoftwareName -eq "Quarto") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
 
-            $CurrentVersion = ($VersionOutput -split ' ')[-1]
-            If ($SoftwareName -eq "Python") { $CurrentVersion = ($VersionOutput -split ' ')[-1] } # Python version is usually "Python X.Y.Z"
-            If ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
-            # Quarto version is usually just "X.Y.Z"
+            $CurrentVersion = ""
+            If ($SoftwareName -eq "Python") { $CurrentVersion = ($VersionOutput -split ' ')[-1] } 
+            ElseIf ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
+            ElseIf ($SoftwareName -eq "Quarto") { $CurrentVersion = $VersionOutput } # Quarto --version just returns the version string
 
             If ($CurrentVersion) {
                  Write-Info "$SoftwareName version: $CurrentVersion"
@@ -159,14 +163,16 @@ Function Install-SoftwareLoop {
         If ($ExePath) {
             Write-Success "$SoftwareName found after manual installation."
             $ExePathOut.Value = $ExePath
-            # Re-run version check part of logic
             try {
                 $VersionOutput = ""
                 If ($SoftwareName -eq "Python") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
                 If ($SoftwareName -eq "R") { $VersionOutput = (& $ExePath -e "cat(R.version.string)" 2>&1) }
                 If ($SoftwareName -eq "Quarto") { $VersionOutput = (& $ExePath --version 2>&1).Trim() }
-                $CurrentVersion = ($VersionOutput -split ' ')[-1]
-                If ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
+                
+                $CurrentVersion = ""
+                If ($SoftwareName -eq "Python") { $CurrentVersion = ($VersionOutput -split ' ')[-1] } 
+                ElseIf ($SoftwareName -eq "R") { $CurrentVersion = ($VersionOutput | Select-String -Pattern "version (\d+\.\d+\.\d+)" | ForEach-Object {$_.Matches.Groups[1].Value}) }
+                ElseIf ($SoftwareName -eq "Quarto") { $CurrentVersion = $VersionOutput }
                 Write-Info "$SoftwareName version after install: $CurrentVersion"
             } catch {Write-Warning "Could not determine version for newly installed $SoftwareName."}
             return $true
@@ -189,17 +195,18 @@ Write-Step "2. Checking/Installing Python Packages"
 If ($PythonExePath) {
     $PipExe = Get-CommandPath "pip"
     If (-not $PipExe) { $PipExe = Get-CommandPath "pip3" }
-    # Determine how to call pip correctly
+    
+    $PipToCall = $null
     $PipArgsPrefix = @()
+
     If ($PipExe) {
         $PipToCall = $PipExe
-    } ElseIf ($PythonExePath) {
+    } ElseIf ($PythonExePath) { # If pip/pip3 not directly in PATH, try python -m pip
         $PipToCall = $PythonExePath
         $PipArgsPrefix = "-m", "pip"
-    } Else {
-        Write-Warning "Cannot determine how to run pip. Skipping Python package installation."
-        $PipToCall = $null # Ensure it's null if not found
-    }
+    } 
+    # Removed the Else that set $PipToCall to $null, as If $PythonExePath is true, one of the above conditions should make $PipToCall non-null.
+    # If both $PipExe is null AND $PythonExePath is somehow null here (contradicting outer If), $PipToCall remains null.
 
     If ($PipToCall) {
         Write-Info "Using '$($PipToCall) $($PipArgsPrefix -join ' ')' for Python package management."
@@ -228,8 +235,18 @@ If ($PythonExePath) {
                 }
             }
         }
+    } Else {
+        # This else means we couldn't determine how to call pip, even with a Python path.
+        # This situation implies $PythonExePath might be valid, but Get-Command for pip/pip3 failed,
+        # AND the logic to use $PythonExePath -m pip didn't set $PipToCall. This shouldn't happen with current logic.
+        # More likely, if outer $PythonExePath is false, this whole block is skipped.
+        # If $PythonExePath is true but $PipToCall is still null, it's an unexpected state.
+        Write-Warning "Could not determine a valid pip command. Skipping Python package installation."
+        $GlobalAllGood = $false
     }
-} Else { Write-Warning "Python not found, skipping Python package installation." }
+} Else { 
+    Write-Warning "Python not found, skipping Python package installation." 
+}
 
 
 Write-Step "3. Checking R Installation"
@@ -241,9 +258,13 @@ If ($GlobalAbort) { Read-Host "Setup aborted. Press Enter to exit."; Exit 1 }
 
 Write-Step "4. Checking/Installing R Packages"
 If ($RScriptExePath) {
+    # Pre-format the package list for R's c() function
+    $RPackagesForRArray = $RequiredRPackages | ForEach-Object { "'$_'" } 
+    $RPackagesStringForR = $RPackagesForRArray -join ", "
+
     $RInstallScriptContent = @"
-    options(Ncpus = max(1, parallel::detectCores(logical=FALSE) %/% 2, na.rm = TRUE)) # Added na.rm for detectCores
-    required_pkgs <- c('$(($RequiredRPackages -join "', '")')')
+    options(Ncpus = max(1, parallel::detectCores(logical=FALSE) %/% 2, na.rm = TRUE))
+    required_pkgs <- c($RPackagesStringForR) 
     installed_pkgs <- rownames(installed.packages())
     missing_pkgs <- required_pkgs[!required_pkgs %in% installed_pkgs]
 
@@ -351,7 +372,7 @@ If (-not (Test-Path $CustomFontSourcePath)) {
         } Else {
             Write-Warning "Font '$CustomFontFileName' still not detected in system fonts after manual install attempt."
             Write-Warning "A system restart OR logging out and back in might be required for the font to be recognized."
-            $GlobalAllGood = $false # Keep this as a warning, user might proceed and it might work after restart
+            # Not setting GlobalAllGood to false here, as it might work after restart.
         }
     }
 }
@@ -363,9 +384,8 @@ $EssentialFiles = @(
     (Join-Path "data" "cleaned_master.csv")
 )
 $EssentialDirs = @("data", "img", "tex", "fonts")
-# Also check the new Python script for cleaning data if it's considered essential for setup
-# For now, assuming it's a user-run step. If it's essential *before* generate_reports, add it.
-# Example: "clean_data.py" (replace with actual name if different)
+$DataCleaningScriptName = "clean_data.py" # ADJUST THIS NAME IF YOUR SCRIPT IS CALLED DIFFERENTLY
+$DataCleaningScriptPath = Join-Path $ProjectRoot $DataCleaningScriptName
 
 $ProjectStructureOK = $true
 
@@ -392,11 +412,9 @@ If ($ProjectStructureOK) {
     Write-Warning "Some essential project files/folders are missing. Please ensure the project is complete."
 }
 
-# Check for the new data cleaning script
-$DataCleaningScriptName = "clean_data.py" # <<<<< ADJUST THIS NAME IF YOUR SCRIPT IS CALLED DIFFERENTLY
-$DataCleaningScriptPath = Join-Path $ProjectRoot $DataCleaningScriptName
 If (-not (Test-Path $DataCleaningScriptPath -PathType Leaf)) {
     Write-Warning "Data cleaning script '$DataCleaningScriptName' not found in project root. This might be a necessary pre-step."
+    # Not setting GlobalAllGood to false, as it's a workflow step, not a strict environment requirement for the script to run.
 }
 
 
