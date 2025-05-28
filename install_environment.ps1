@@ -51,9 +51,30 @@ Function Compare-SoftwareVersions {
 }
 
 Clear-Host
-Write-Host "===================================================================" -ForegroundColor White
+
+# ASCII Art Section for Ronald de Boer
+Write-Host ""
+Write-Host "    ╔══════════════════════════════════════════════════════════╗" -ForegroundColor Blue
+Write-Host "    ║                                                          ║" -ForegroundColor Blue
+Write-Host "    ║    RRRR    OOO   N   N   AAA   L      DDDD                ║" -ForegroundColor White
+Write-Host "    ║    R   R  O   O  NN  N  A   A  L      D   D               ║" -ForegroundColor White
+Write-Host "    ║    RRRR   O   O  N N N  AAAAA  L      D   D    EEEEE      ║" -ForegroundColor White
+Write-Host "    ║    R  R   O   O  N  NN  A   A  L      D   D    E          ║" -ForegroundColor White
+Write-Host "    ║    R   R   OOO   N   N  A   A  LLLLL  DDDD     EEEEE      ║" -ForegroundColor White
+Write-Host "    ║                                                          ║" -ForegroundColor Blue
+Write-Host "    ║    DDDD   EEEEE       BBBB    OOO   EEEEE  RRRR           ║" -ForegroundColor White
+Write-Host "    ║    D   D  E           B   B  O   O  E      R   R          ║" -ForegroundColor White
+Write-Host "    ║    D   D  EEEE        BBBB   O   O  EEEE   RRRR           ║" -ForegroundColor White
+Write-Host "    ║    D   D  E           B   B  O   O  E      R  R           ║" -ForegroundColor White
+Write-Host "    ║    DDDD   EEEEE       BBBB    OOO   EEEEE  R   R          ║" -ForegroundColor White
+Write-Host "    ║                                                          ║" -ForegroundColor Blue
+Write-Host "    ║             R E P O R T   S E T U P                      ║" -ForegroundColor Cyan
+Write-Host "    ║                                                          ║" -ForegroundColor Blue
+Write-Host "    ╚══════════════════════════════════════════════════════════╝" -ForegroundColor Blue
+Write-Host ""
+Write-Host "===================================================================" -ForegroundColor DarkGray
 Write-Host "      Project Environment Setup for Resilience Reports      " -ForegroundColor White
-Write-Host "===================================================================" -ForegroundColor White
+Write-Host "===================================================================" -ForegroundColor DarkGray
 Write-Host "This script will guide you through installing necessary software."
 Write-Host "An internet connection is required for downloads."
 Write-Host "Some steps may require Administrator privileges."
@@ -372,7 +393,7 @@ If ($ProjectStructureOK) {
 }
 
 # Check for the new data cleaning script
-$DataCleaningScriptName = "clean_data.py" # Assuming this is the name of your cleaning script
+$DataCleaningScriptName = "clean_data.py" # <<<<< ADJUST THIS NAME IF YOUR SCRIPT IS CALLED DIFFERENTLY
 $DataCleaningScriptPath = Join-Path $ProjectRoot $DataCleaningScriptName
 If (-not (Test-Path $DataCleaningScriptPath -PathType Leaf)) {
     Write-Warning "Data cleaning script '$DataCleaningScriptName' not found in project root. This might be a necessary pre-step."
@@ -384,9 +405,9 @@ Write-Info "The 'send_emails.py' script requires Microsoft Outlook to be install
 Write-Info "This script does not install Outlook. Please ensure it's set up if you intend to use the email sending feature."
 
 
-Write-Host "`n===================================================================" -ForegroundColor White
+Write-Host "`n===================================================================" -ForegroundColor DarkGray
 Write-Host "                 Setup Check Complete!                 " -ForegroundColor White
-Write-Host "===================================================================" -ForegroundColor White
+Write-Host "===================================================================" -ForegroundColor DarkGray
 
 If ($GlobalAllGood -and $PythonExePath -and $RScriptExePath -and $QuartoExePath) {
     Write-Success "Core software (Python, R, Quarto) and project structure appear to be configured."
@@ -395,6 +416,8 @@ If ($GlobalAllGood -and $PythonExePath -and $RScriptExePath -and $QuartoExePath)
     If (Test-Path $DataCleaningScriptPath -PathType Leaf) {
         Write-Info "  1. Ensure your raw data is in place (e.g., './data/Resilience - MasterDatabase(MasterData).csv')."
         Write-Info "  2. Run the data cleaning script: python $DataCleaningScriptName"
+    } else {
+        Write-Info "  1. Ensure your data file './data/cleaned_master.csv' is ready or generated."
     }
     Write-Info "  3. To generate reports: python generate_reports.py"
     Write-Info "  4. To send emails (after reports are generated and Outlook is configured): python send_emails.py"
