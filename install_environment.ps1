@@ -1,96 +1,83 @@
 # REQUIRES: Run this script in PowerShell as Administrator.
 
-Write-Host "Starting minimal setup..."
-Write-Host "This script will install Chocolatey (if needed), then Python, R, Quarto, required packages, and a Quarto extension."
-Write-Host "Ensure you are running this PowerShell session as Administrator."
+Write-Host "--- Starting Comprehensive All-in-One Installation Script ---" -ForegroundColor Yellow
+Write-Host "IMPORTANT: This script MUST be run as Administrator."
+Write-Host "This version installs a broader set of common Python and R packages, and VSCode."
 Read-Host -Prompt "Press Enter to continue if you are running as Administrator, or Ctrl+C to cancel"
 
-# Step 1: Install Chocolatey (if not already installed)
-Write-Host "[Step 1/6] Checking/Installing Chocolatey package manager..."
-if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-    Write-Host "Chocolatey not found. Attempting installation..."
-    Set-ExecutionPolicy Bypass -Scope Process -Force;
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
-    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+Function Run-Command {
+    param(
+        [string]$Command,
+        [string]$ErrorMessage
+    )
+    Write-Host "Executing: $Command"
+    Invoke-Expression $Command
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Chocolatey installation command failed. Please check errors. Exiting."
-        exit 1
+        Write-Error "$ErrorMessage (Exit Code: $LASTEXITCODE). Please check output above. Script will attempt to continue but may fail."
+    } else {
+        Write-Host "Command successful."
     }
-    Write-Host "Chocolatey installation command executed. Refreshing environment variables for current session..."
+}
+
+Function Refresh-Path {
+    Write-Host "Attempting to refresh PATH environment variable for current session..."
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     Import-Module "$($env:ProgramData)\chocolatey\helpers\chocolateyProfile.psm1" -ErrorAction SilentlyContinue
+    Write-Host "PATH refresh attempted. New commands might now be available."
+}
+
+# 1. Install Chocolatey (if not present)
+Write-Host "`n--- Step 1/9: Installing Chocolatey (if not present) ---" -ForegroundColor Cyan
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+    Run-Command -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" -ErrorMessage "Chocolatey installation failed."
+    Refresh-Path
     if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-         Write-Warning "Chocolatey might not be immediately available in this session's PATH."
-         Write-Warning "If the next steps fail with 'choco' not found, please close this PowerShell window, open a new one (as Administrator), and re-run this script."
-         Read-Host -Prompt "Press Enter to attempt to continue, or Ctrl+C to stop and restart PowerShell."
+        Write-Warning "Chocolatey installed, but 'choco' command may not be available yet in this session. If subsequent steps fail, try re-running the script in a new Administrator PowerShell window."
     }
 } else {
-    Write-Host "Chocolatey is already installed."
+    Write-Host "Chocolatey already installed."
 }
 
-# Step 2: Install Python, R, and Quarto CLI using Chocolatey
-Write-Host "[Step 2/6] Installing Python, R, and Quarto CLI via Chocolatey..."
-Write-Host "This may take several minutes per application."
+# 2. Install Python
+Write-Host "`n--- Step 2/9: Installing Python ---" -ForegroundColor Cyan
+Run-Command -Command "choco install python --yes --force --request-timeout=3600" -ErrorMessage "Python installation failed."
+Refresh-Path
 
-choco install python --yes --force --request-timeout=3600
-if ($LASTEXITCODE -ne 0) { Write-Error "Python installation via Chocolatey failed. Exiting."; exit 1 }
+# 3. Install R
+Write-Host "`n--- Step 3/9: Installing R ---" -ForegroundColor Cyan
+Run-Command -Command "choco install r.project --yes --force --request-timeout=3600" -ErrorMessage "R installation failed."
+Refresh-Path
 
-choco install r.project --yes --force --request-timeout=3600
-if ($LASTEXITCODE -ne 0) { Write-Error "R installation via Chocolatey failed. Exiting."; exit 1 }
+# 4. Install Quarto CLI
+Write-Host "`n--- Step 4/9: Installing Quarto CLI ---" -ForegroundColor Cyan
+Run-Command -Command "choco install quarto-cli --yes --force --request-timeout=3600" -ErrorMessage "Quarto CLI installation failed."
+Refresh-Path
 
-choco install quarto-cli --yes --force --request-timeout=3600
-if ($LASTEXITCODE -ne 0) { Write-Error "Quarto CLI installation via Chocolatey failed. Exiting."; exit 1 }
+# 5. Install Visual Studio Code (VSCode)
+Write-Host "`n--- Step 5/9: Installing Visual Studio Code ---" -ForegroundColor Cyan
+Run-Command -Command "choco install vscode --yes --force --request-timeout=3600" -ErrorMessage "Visual Studio Code installation failed."
 
-Write-Host "Core software installation commands sent. Refreshing environment variables..."
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+# 6. Install Python Packages (Expanded List)
+Write-Host "`n--- Step 6/9: Installing Python Packages (Expanded List) ---" -ForegroundColor Cyan
+$pythonPackages = "pandas pywin32 numpy scipy matplotlib seaborn openpyxl requests"
+Run-Command -Command "pip install $pythonPackages" -ErrorMessage "Python package installation (pip) failed."
 
-# Step 3: Install Python Packages
-Write-Host "[Step 3/6] Installing Python packages (pandas, pywin32)..."
-pip install pandas pywin32
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Python package (pip) installation failed."
-    Write-Error "This might be because 'pip' is not yet in the PATH for this session."
-    Write-Error "Try opening a new PowerShell (Admin) window and running: pip install pandas pywin32"
-    Write-Error "Exiting script."
-    exit 1
-}
+# 7. Install R Packages (Expanded List - this may take a significant amount of time)
+Write-Host "`n--- Step 7/9: Installing R Packages (Expanded List) ---" -ForegroundColor Cyan
+Write-Host "NOTE: R package installation can take a considerable amount of time, especially for 'tidyverse'."
+$rPackagesToInstall = "c('tidyverse', 'fmsb', 'scales', 'rmarkdown', 'knitr', 'openxlsx', 'readxl')"
+Run-Command -Command "Rscript -e ""install.packages($rPackagesToInstall, repos='https://cloud.r-project.org/', Ncpus = max(1, parallel::detectCores() - 1))""" -ErrorMessage "R package installation (Rscript) failed."
 
-# Step 4: Install R Packages
-Write-Host "[Step 4/6] Installing R packages..."
-Rscript -e "install.packages(c('readr', 'dplyr', 'stringr', 'tidyr', 'ggplot2', 'fmsb', 'scales'), repos='https://cloud.r-project.org/')"
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "R package installation failed."
-    Write-Error "This might be because 'Rscript' is not yet in the PATH for this session."
-    Write-Error "Try opening a new PowerShell (Admin) window and running the Rscript command from Step 4 manually."
-    Write-Error "Exiting script."
-    exit 1
-}
+# 8. Install TinyTeX
+Write-Host "`n--- Step 8/9: Installing TinyTeX (LaTeX for Quarto) ---" -ForegroundColor Cyan
+Run-Command -Command "quarto install tinytex" -ErrorMessage "TinyTeX installation (quarto) failed."
 
-# Step 5: Install TinyTeX for Quarto PDF generation
-Write-Host "[Step 5/6] Installing TinyTeX (LaTeX for Quarto)..."
-quarto install tinytex
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "TinyTeX installation via Quarto failed."
-    Write-Error "This might be because 'quarto' is not yet in the PATH for this session."
-    Write-Error "Try opening a new PowerShell (Admin) window and running: quarto install tinytex"
-    Write-Error "Exiting script."
-    exit 1
-}
+# 9. Install Quarto Extension
+Write-Host "`n--- Step 9/9: Installing Quarto Extension ---" -ForegroundColor Cyan
+Run-Command -Command "quarto install extension nmfs-opensci/quarto_titlepages --no-prompt" -ErrorMessage "Quarto extension installation failed."
 
-# Step 6: Install Quarto Extension
-Write-Host "[Step 6/6] Installing Quarto extension 'nmfs-opensci/quarto_titlepages'..."
-quarto install extension nmfs-opensci/quarto_titlepages --no-prompt
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Quarto extension installation failed."
-    Write-Error "This might be because 'quarto' is not yet in the PATH for this session, or an issue with the extension itself."
-    Write-Error "Try opening a new PowerShell (Admin) window and running: quarto install extension nmfs-opensci/quarto_titlepages --no-prompt"
-    Write-Error "Exiting script."
-    exit 1
-}
-
-Write-Host ""
-Write-Host "--- Minimal Setup Script Completed ---"
-Write-Host "All installation commands have been executed."
-Write-Host "If any 'command not found' errors occurred for pip, Rscript, or quarto, it's likely due to PATH updates requiring a new PowerShell session."
-Write-Host "In such cases, open a new PowerShell window (as Administrator if re-running parts of this script) and the commands should then be available."
-Write-Host "Manual steps still required: Install custom font (QTDublinIrish.otf) and ensure Outlook is configured."
+Write-Host "`n--- All Installation Steps Attempted ---" -ForegroundColor Yellow
+Write-Host "If any 'command not found' errors occurred for choco, pip, Rscript, or quarto, it's likely due to PATH environment variable updates not fully propagating in this single session."
+Write-Host "In such cases, open a NEW Administrator PowerShell window; the commands should then be available."
+Write-Host "Manual steps still potentially required: Install custom font (QTDublinIrish.otf) and ensure Outlook is configured."
+Read-Host -Prompt "Script finished. Press Enter to exit."
