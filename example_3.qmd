@@ -2,12 +2,10 @@
 title: A Sample Title - The SocioEconomic Aspects of Stock Assessments
 subtitle: with non-English diacritics in the author names. See documentation.
 author:
-  - name: Jane Doe
+  - name: Ronald de boer
     affiliations:
-      - name: Minnesota Department of Natural Resources
-        address: 500 Lafayette Road Saint Paul, MN 55155
-      - name: University of Minnesota
-        department: Department of Mathematics
+      - name: Hogeschool Windesheim
+        address: Campus 2, Zwolle
 bibliography: references.bib
 format: 
   titlepage-pdf:
@@ -23,9 +21,8 @@ format:
     titlepage-logo: "img/logo.png"
     titlepage-header: "The Publisher"
     titlepage-footer: |
-      NOAA Fisheries OpenSci\
-      Tools for Open Science\
-      [https://github.com/nmfs-opensci](https://github.com/nmfs-opensci)\
+      Hogeschool Windesheim\
+      https://resiliencescan.org/\
     coverpage-include-file:
       - tex/copyright.tex
     titlepage-include-file:
@@ -35,7 +32,7 @@ format:
       vrule-width: "10pt"
     coverpage: otter
     coverpage-bg-image: "img/otter-bar.jpeg"
-    coverpage-title: "Otters"
+    coverpage-title: "resiliencescan"
     coverpage-author: ["EE", "Holmes"]
     coverpage-theme:
       title-color: "white"
@@ -52,10 +49,33 @@ format:
       header-style: "none"
       date-style: "none"
       keep-tex: true
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  company: "Placeholder Company"
 ---
 
 
 # Introduction
+
+```{r}
+# Load necessary libraries
+library(readr)
+library(dplyr)
+
+# Read the data
+df <- read_csv("data/cleaned_master.csv")
+
+# Filter by parameter value
+df_filtered <- df %>% 
+  filter(tolower(company_name) == tolower(params$company))
+
+# Print the resilience score
+df_filtered$overall_scres
+```
+
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin eu tempor velit. Fusce accumsan ultrices fringilla. Praesent sed odio mi. Mauris non ligula turpis. Duis posuere lacus nec diam interdum dictum suscipit magna molestie. Vestibulum nibh dolor, interdum eget rhoncus ut, sodales eget justo. Morbi blandit lorem sit amet nulla egestas aliquam. Nunc pharetra est at nibh ullamcorper in commodo erat dignissim. Cras et suscipit enim.
 
@@ -64,6 +84,10 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus neque ex, veh
 Nulla mattis diam vitae bibendum consequat. Etiam vitae eros tristique, porta sapien a, aliquet mauris. Praesent ultricies mi nulla, et dignissim nulla mattis at. Fusce rhoncus leo quis odio euismod, hendrerit facilisis risus tincidunt. Aenean at lectus justo. Cras fringilla lacus nisl, ac convallis odio tincidunt vel. Integer vel egestas nisi. Curabitur vitae imperdiet justo.
 
 > Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\
+
+## internal readyness
+
+## 🧱 Internal Readiness Breakdown
 
 ## Supporting theory
 

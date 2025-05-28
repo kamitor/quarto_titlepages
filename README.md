@@ -1,82 +1,147 @@
-[![github](https://img.shields.io/github/v/release/nmfs-opensci/quarto_titlepages?color=brightgreen&label=GitHub)](https://github.com/nmfs-opensci/quarto_titlepages/releases/latest)
-[![DOI](https://zenodo.org/badge/521413662.svg)](https://zenodo.org/badge/latestdoi/521413662) [![](https://img.shields.io/badge/Open%20In-RStudio%20Cloud-green)](https://rstudio.cloud/content/4891671) <-- *Try it out!*
+# 📊 Resilience Scan Report Generator
 
-# quarto_titlepages <a href="https://github.com/nmfs-opensci/quarto_titlepages"><img src="https://github.com/nmfs-opensci.png" align="right" width="120"/></a>
+This project automates the generation of PDF reports for multiple companies based on their data using a single Quarto template.
 
-[Read the documentation](https://nmfs-opensci.github.io/quarto_titlepages/)
- 
+---
 
-A Quarto extension for adding a custom title page or book cover to your PDF output using the information in the YAML in your Quarto doc, i.e. from the `xyz.qmd` for an single doc and from `index.qmd` for a [Quarto](https://quarto.org/) book. 
+## ✅ Project Structure
 
-<img src="./img/example.png" width="200"/>
+```
+.
+├── example_3.qmd              # Quarto template for the report
+├── generate_all_reports.py    # Python script to render all company reports
+├── data/
+│   └── cleaned_master.csv     # Input data file with company details
+├── reports/                   # Output folder for generated PDFs
+├── img/                       # Images used in the PDF cover/title
+│   ├── logo.png
+│   ├── corner-bg.png
+│   └── otter-bar.jpeg
+├── tex/
+│   ├── dedication.tex         # Custom dedication page
+│   └── copyright.tex          # Copyright/license notice
+```
 
-## Install the extension
+---
+
+## ⚙️ How It Works
+
+1. The Python script:
+   - Loads `cleaned_master.csv`
+   - Iterates through all unique company names
+   - Renders a separate PDF report per company using the Quarto template
+   - Saves each report in the `reports/` folder
+   - Skips reports already generated
+
+2. The Quarto template:
+   - Accepts a parameter `company`
+   - Filters data based on that company name
+   - Renders a personalized PDF for each company
+   - Includes a custom cover page, title page, and formatted design
+
+---
+
+## 🧪 Features Tested
+
+- Parameterized Quarto rendering using `-P company:"<Name>"`
+- CSV reading with flexible encodings
+- Clean file naming for output
+- PDF generation via XeLaTeX
+- Echo, warnings, and messages disabled in final output
+- Custom cover page and title page design using `quarto-titlepages`
+
+---
+
+## 💻 Install Guide
+
+### 1. Install Python 3
+
+https://www.python.org/downloads/  
+Make sure `python` and `pip` are in your PATH.
+
+### 2. Install Required Python Packages
 
 ```bash
-quarto use template nmfs-opensci/quarto_titlepages
+pip install pandas
 ```
 
-This will install the extension plus all the example files. Essentially, you will be cloning the repo into a new folder and you will be asked at installation for the name of the (empty) folder/directory that you want to install into.
+### 3. Install Quarto
 
-## Install or update for an existing document
+https://quarto.org/docs/get-started/
 
-You may also use this format with an existing Quarto project or document. This will install only the files in the `_extension` folder and will not install the files above that (the demo files). This is also how to update the extension if there have been changes.
+Make sure `quarto` is accessible from the command line.
 
-From the quarto project or document directory, run the following command:
+### 4. Install LaTeX
+
+Install a full TeX distribution that includes XeLaTeX:
+
+- **Windows**: [TeX Live](https://tug.org/texlive/windows.html) or [MiKTeX](https://miktex.org/)
+- **Linux**: `sudo apt install texlive-full`
+- **Mac**: [MacTeX](https://tug.org/mactex/)
+
+---
+
+## 🏁 Run
+
+To generate the reports:
 
 ```bash
-quarto install extension nmfs-opensci/quarto_titlepages
+python generate_all_reports.py
 ```
 
-## Usage
+---
 
-In your document yaml add the format and a titlepage theme.
+## 🚧 Next Steps
 
-```yaml
-format: 
-  titlepage-pdf:
-    titlepage: bg-image
-```
+## ✅ Progress Checklist: Quarto Report Automation System
 
-Then render the document using either the 'render' button in your IDE or from the terminal with
-```
-quarto render article.qmd
-````
-Note if you add `--to` to the command, use `--to titlepage-pdf` not `--to pdf`.
+### 🟩 Core Functionality (Done)
+- [x] Created Data-Clean Function for CSV
+- [x] Load cleaned company data from `data/cleaned_master.csv`
+- [x] Generate individual PDF reports per company using Quarto and parameters
+- [x] Use custom LaTeX-styled `example_3.qmd` template with branding
+- [x] Store generated reports in the `reports/` folder
+- [x] Skip already generated reports to save time
 
-See the documentation for the possible themes.
+---
 
-### Example files
+### 🔧 Technical Improvements (Planned)
+- [ ] Add basic error handling for missing/malformed CSV data
+- [ ] Refactor script for better retry support and clearer logging
+- [ ] Parametrize output formats (PDF, HTML)
+- [ ] Automatically move output file instead of relying on Quarto to put it in the right location
 
-There are two example file. `example_1.qmd` shows an example with only a titlepage. `example_2.qmd` has a cover page, copyright page, title page and dedication page. The copyright and dedication pages are in the `tex` folder. This example will not run if you don't have those files. The examples also use images in the `img` folder. You will need those files or replace them with your own.
+---
 
-## Customizing
+### 📊 Report Content Enhancements (Planned)
+- [ ] Add summary statistics per company (e.g., score, compliance level, key metrics)
+- [ ] Add basic plots (e.g., bar chart of key indicators)
+- [ ] Ensure template gracefully handles missing data per company
+- [ ] Modularize template to adapt to future layout/styling changes
 
-All aspects of the title and cover pages can be customized and static pages (e.g. copyright) can be added after the title page. [Read the documentation](https://nmfs-opensci.github.io/quarto_titlepages/). 
+---
 
-tldr; In your yaml, you pass in `titlepage-theme:` or `coverpage-theme:` with variables for things like font, fontstyle, position of elements, colors, background images, etc.
+### 📤 Automation Pipeline (In Progress)
+- [ ] Integrate Outlook for automatic email delivery of each report
+- [ ] Add `.env` or config file for Outlook credentials and recipients
+- [ ] Log all sent emails and failures to a local or shared log file
+- [ ] Allow optional delay between emails to avoid rate-limiting
 
-## Getting rid of the QTDublinIrish.otf file
+---
 
-This is coming from the extension for the cover page demos. Find the `_extension.yml` file in the `_extensions` folder for the `titlepage` extension. Delete these lines
-```
-      format-resources:
-        - "fonts/qualitype/opentype/QTDublinIrish.otf"
-```
+### 🧪 Future Readiness (Stretch Goals)
+- [ ] Allow support for multiple rows per company (grouped aggregation)
+- [ ] Add tagging or categorization logic (e.g., “High Risk”, “Compliant”, etc.)
+- [ ] Publish summary dashboard (Quarto HTML or Streamlit) showing company status
+- [ ] Use GitHub Actions or cron job to re-generate reports weekly/monthly
 
-## LaTeX users
+---
 
-If you have a title page and/or cover page, that you want to use directly. You might want to look at [quarto_titlepages_v1](https://github.com/nmfs-opensci/quarto_titlepages_v1). This shows you how to create your own Pandoc templates so you can get control of the title page in your tex files. Alternatively, if you have a static title or cover page, see the documentation chapter on using static tex files in your frontmatter.
+### 🚨 Watch-Outs
+- [ ] Ensure the `example_3.qmd` template always includes a fallback if no data is found
+- [ ] Avoid reusing output names that could clash (sanitize filenames carefully)
+- [ ] Monitor `.quarto` folder lock issues (XeLaTeX temp files)
 
-------
-This work is uses [Quarto](https://quarto.org/), [citation](https://github.com/quarto-dev/quarto-cli/blob/main/CITATION.cff). The default document classes for Quarto are scrbook and scrartcl. This repo also includes a copy of the Springer [svmono](https://www.springernature.com/gp/authors/campaigns/latex-author-support) document class, CRC/Chapman & Hall krantz document class, and the Elsevier elsarticle document class. The tex templates were written by [Eli Holmes](https://github.com/eeholmes) and the lua filter along with changes to the Pandoc templates to allow themes was written by [Mickaël Canouil](https://github.com/mcanouil).
+---
 
-<hr>
-
-## Disclaimer
-
-This repository is a scientific product and is not official communication of the National Oceanic and Atmospheric Administration, or the United States Department of Commerce. All NOAA GitHub project content is provided on an ‘as is’ basis and the user assumes responsibility for its use. Any claims against the Department of Commerce or Department of Commerce bureaus stemming from the use of this GitHub project will be governed by all applicable Federal law. Any reference to specific commercial products, processes, or services by service mark, trademark, manufacturer, or otherwise, does not constitute or imply their endorsement, recommendation or favoring by the Department of Commerce. The Department of Commerce seal and logo, or the seal and logo of a DOC bureau, shall not be used in any manner to imply endorsement of any commercial product or activity by DOC or the United States Government.
-
-## License addendum
-
-This content was created by U.S. Government employees as part of their official duties.  This content is not subject to copyright in the United States (17 U.S.C. §105) and is in the public domain within the United States of America. Additionally, copyright is waived worldwide through the CC0 1.0 Universal public domain dedication.
+Built with ❤️ for the ResilienceScan project at Hogeschool Windesheim.

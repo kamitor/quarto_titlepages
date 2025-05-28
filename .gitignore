@@ -56,3 +56,5 @@ example_4_files/
 example_5.*
 example_5_files/
 *.html
+
+/.luarc.json
