@@ -1,8 +1,4 @@
-You're absolutely right. The previous README was too focused on just the installation and basic usage, lacking the broader context and forward-looking perspective that a good GitHub README should have, especially for a project with ongoing development or potential.
-
-Let's craft a new README that addresses this. I'll incorporate the good parts of the installation instructions but expand significantly on the project's purpose, architecture, and future vision.
-
-# Resilience Report Generator  quét
+# Resilience Report Generator
 
 ## 🌟 Overview
 
