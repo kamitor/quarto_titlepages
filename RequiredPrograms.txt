@@ -13,7 +13,7 @@ This document outlines the necessary tools, programs, and steps to set up the en
 *   **Internet Connection:** Required to download Chocolatey, all tools, packages, extensions, and the `kamitor/quarto_titlepages` GitHub repository.
 *   **User Confirmation:** The script will pause and ask for confirmation that it is being run as Administrator before proceeding.
 
-## IV. Core Software & Tools to be Installed by the PowerShell Script
+## IV. Core Software & Taools to be Installed by the PowerShell Script
 The installer script will attempt to install the following, primarily using the Chocolatey package manager:
 
 1.  **Chocolatey:**
