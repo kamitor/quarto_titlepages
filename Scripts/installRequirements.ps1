@@ -1,20 +1,26 @@
 # Main-Installer.ps1
 # Orchestrates the installation of all necessary tools and programs.
 # REQUIRES: Run this script in PowerShell as Administrator.
-# NOTE: VSCode uses PSScriptAnalyzer for linting. Some "errors" it reports might be style/best-practice warnings.
-# If a true syntax error occurs, PowerShell itself will likely fail to parse/run the script.
 
 # --- Initial Setup ---
 Write-Host "--- Starting Main Installation Orchestrator ---" -ForegroundColor Yellow
 
 # Ensure running as Administrator
-$currentUser = New-Object System.Security.Principal.WindowsPrincipal([System.Security.Principal.WindowsIdentity]::GetCurrent())
-if (-Not $currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Error "This script must be run as Administrator. Please re-launch PowerShell as Administrator and try again."
+try {
+    $currentIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $currentUser = New-Object System.Security.Principal.WindowsPrincipal($currentIdentity)
+
+    if (-Not $currentUser.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Error "This script must be run as Administrator. Please re-launch PowerShell as Administrator and try again."
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    Write-Host "Administrator privileges confirmed." -ForegroundColor Green
+} catch {
+    Write-Error "Failed to verify Administrator privileges. Error: $($_.Exception.Message)"
     Read-Host "Press Enter to exit"
     exit 1
 }
-Write-Host "Administrator privileges confirmed." -ForegroundColor Green
 
 # Set Execution Policy for this process to allow script execution
 try {
@@ -28,6 +34,7 @@ try {
 
 # --- Configuration ---
 $BaseDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$Global:MainInstallerBaseDir = $BaseDir # For sub-scripts needing access to main script's location
 $ModulesDir = Join-Path -Path $BaseDir -ChildPath "modules"
 
 # Variables that need to be globally available for sub-scripts or are central to the process
@@ -152,11 +159,16 @@ Function Test-IsQuartoCliInstalled {
 Function Test-IsVSCodeInstalled {
     Write-Host "Checking for Visual Studio Code (via Chocolatey)..."
     if (Get-Command choco -ErrorAction SilentlyContinue) {
-        # Try to get specific info for vscode package
-        $vscodePackageInfo = choco list --local-only --exact --name-only --limit-output vscode
-        if ($LASTEXITCODE -eq 0 -and $vscodePackageInfo -match "vscode") {
+        $vscodePackageInfo = ""
+        try {
+            $vscodePackageInfo = choco list --local-only --exact --name-only --limit-output vscode -r # -r for simple output
+        } catch {
+            # choco list can sometimes throw if no packages are found, even with -r
+             Write-Warning "Error checking for VSCode with choco list: $($_.Exception.Message)"
+        }
+
+        if ($LASTEXITCODE -eq 0 -and $vscodePackageInfo -match "vscode") { # Check if 'vscode' is in the output
             Write-Host "VSCode (Chocolatey package 'vscode') is listed as installed by Chocolatey." -ForegroundColor Green
-            # Additionally, check if the executable is on path, as a secondary confirmation
             if (Get-Command code -ErrorAction SilentlyContinue) {
                 Write-Host "VSCode 'code' command is available on PATH." -ForegroundColor Green
             } else {
@@ -168,6 +180,7 @@ Function Test-IsVSCodeInstalled {
     Write-Host "VSCode (Chocolatey package 'vscode') not found or not listed by Chocolatey as installed." -ForegroundColor Yellow
     return $false
 }
+
 Function Test-IsTinyTeXInstalled {
     Write-Host "Checking for TinyTeX..."
     if (-not (Test-IsQuartoCliInstalled)) {
@@ -175,76 +188,71 @@ Function Test-IsTinyTeXInstalled {
         return $false
     }
 
-    $tinytexPathUser = Join-Path $env:APPDATA "TinyTeX" # Common path for 'quarto install tool tinytex'
-    $tinytexPathQuartoBundled = "" # Placeholder for system-wide if Quarto ever bundles it differently
-
-    # First, check common installation paths
+    $tinytexPathUser = Join-Path $env:APPDATA "TinyTeX"
     if (Test-Path (Join-Path $tinytexPathUser "bin" "win32" "pdflatex.exe") -PathType Leaf) {
         Write-Host "TinyTeX found at user path: $tinytexPathUser" -ForegroundColor Green
         return $true
     }
     
-    # Add other known paths if necessary, e.g.:
-    # $quartoInstallPath = (Get-Command quarto).Source | Split-Path | Split-Path
-    # $tinytexPathQuartoBundled = Join-Path $quartoInstallPath "share\tinytex"
-    # if (Test-Path (Join-Path $tinytexPathQuartoBundled "bin" "win32" "pdflatex.exe") -PathType Leaf) {
-    #     Write-Host "TinyTeX found bundled with Quarto at: $tinytexPathQuartoBundled" -ForegroundColor Green
-    #     return $true
-    # }
-
-    # As a fallback, try 'quarto check' and parse its output (can be version dependent)
-    Write-Host "TinyTeX not found at common paths. Trying 'quarto check' for LaTeX detection..."
+    Write-Host "TinyTeX not found at common user path. Trying 'quarto check' for LaTeX detection..."
     $quartoCheckOutput = ""
-    $exitCode = 1 # Default to failure
+    $exitCode = 1 
     try {
         $OriginalProgressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
-        # Use a more general check that should list LaTeX status
-        $quartoCheckOutput = quarto check --json 2>$null # Try to get JSON output, easier to parse
-        if ($LASTEXITCODE -eq 0 -and $quartoCheckOutput) {
-             $checkResult = $quartoCheckOutput | ConvertFrom-Json
-             if ($checkResult.formats.pdf.latex) {
-                Write-Host "Quarto check indicates a LaTeX distribution is available: $($checkResult.formats.pdf.latex)" -ForegroundColor Green
-                # This doesn't guarantee it's TinyTeX, but it's a functional LaTeX
+        
+        $quartoCheckOutputJson = quarto check --json 2>$null
+        if ($LASTEXITCODE -eq 0 -and $quartoCheckOutputJson) {
+             $checkResult = $quartoCheckOutputJson | ConvertFrom-Json -ErrorAction SilentlyContinue
+             if ($checkResult -and $checkResult.formats.pdf.latex) {
+                Write-Host "Quarto check (JSON) indicates a LaTeX distribution is available: $($checkResult.formats.pdf.latex)" -ForegroundColor Green
                 return $true
-             } else {
-                Write-Host "Quarto check JSON does not confirm LaTeX." -ForegroundColor Yellow
+             } elseif ($checkResult) { # JSON parsed but no specific latex confirmation
+                Write-Host "Quarto check (JSON) parsed but did not confirm LaTeX in expected structure." -ForegroundColor Yellow
+             } else { # Failed to parse JSON or JSON was empty
+                Write-Host "Quarto check (JSON) output was empty or failed to parse. Falling back to text check." -ForegroundColor Yellow
              }
         } else {
-            # Fallback to string parsing if JSON failed or no output
-            $quartoCheckOutput = quarto check 2>&1 | Out-String
-            if ($LASTEXITCODE -eq 0 -and $quartoCheckOutput -match "(?i)LaTeX\s+\[✔\]|(?i)Found LaTeX") {
-                 Write-Host "Quarto check (text) indicates LaTeX is available." -ForegroundColor Green
-                 return $true
-            } else {
-                Write-Host "Quarto check (text) does not confirm LaTeX. Output: $($quartoCheckOutput | Select-Object -First 300)" -ForegroundColor Yellow
-            }
+            Write-Host "Quarto check with --json failed or produced no output. Falling back to text check." -ForegroundColor Yellow
         }
-        $exitCode = $LASTEXITCODE
+
+        # Fallback to string parsing if JSON failed or no output, or if structure wasn't as expected
+        $quartoCheckOutputText = quarto check 2>&1 | Out-String
+        # Regex to match "LaTeX" followed by optional whitespace and then either "[?]" (unicode checkmark) or "[OK]" or "Found"
+        # Need to escape the square brackets for literal match in regex.
+        # The checkmark can be tricky. Let's try a few common representations or just "Found LaTeX".
+        if ($LASTEXITCODE -eq 0 -and ($quartoCheckOutputText -match "(?i)LaTeX\s*\[\u2714\]" -or $quartoCheckOutputText -match "(?i)LaTeX\s*\[OK\]" -or $quartoCheckOutputText -match "(?i)Found LaTeX")) {
+             Write-Host "Quarto check (text) indicates LaTeX is available." -ForegroundColor Green
+             return $true
+        } else {
+            Write-Host "Quarto check (text) does not confirm LaTeX. Output (first 300 chars): $($quartoCheckOutputText | Select-Object -First 300)" -ForegroundColor Yellow
+        }
+        $exitCode = $LASTEXITCODE # Capture exit code from the text check attempt
     } catch {
-        $quartoCheckOutput = $_.Exception.Message
-        $exitCode = -1
+        $quartoCheckOutput = $_.Exception.Message # This would be from the try block itself, not quarto
+        $exitCode = -1 # Indicate error from the try-catch
+        Write-Warning "Exception during Quarto check: $quartoCheckOutput"
     } finally {
         $ProgressPreference = $OriginalProgressPreference
     }
 
-    if ($exitCode -ne 0) {
-        Write-Host "Attempt to use 'quarto check' for TinyTeX detection failed or did not find LaTeX. ExitCode: $exitCode" -ForegroundColor Yellow
+    if ($exitCode -ne 0) { # If all attempts within try failed based on LASTEXITCODE
+        Write-Host "Attempt to use 'quarto check' for TinyTeX detection failed or did not find LaTeX. Last ExitCode: $exitCode" -ForegroundColor Yellow
     }
     
-    Write-Host "TinyTeX not definitively detected." -ForegroundColor Yellow
+    Write-Host "TinyTeX not definitively detected after all checks." -ForegroundColor Yellow
     return $false
 }
 
 Function Test-IsNmfsExtensionInstalled {
     param (
-        [string]$LocationOfExtensionParentDir # This is $Global:nmfsExtensionInstallLocation
+        [string]$LocationOfExtensionParentDir 
     )
-    $extensionDirName = "nmfs-opensci" # Top-level directory Quarto creates for this extension
+    $extensionDirName = "nmfs-opensci" 
     $fullExtensionPath = Join-Path -Path $LocationOfExtensionParentDir -ChildPath "_extensions\$extensionDirName"
     Write-Host "Checking for '$extensionDirName' Quarto extension in '$fullExtensionPath'..."
 
-    if (Test-Path $fullExtensionPath -PathType Container) { # Check if it's a directory
+    if (Test-Path $fullExtensionPath -PathType Container) { 
         Write-Host "'$extensionDirName' extension found at $fullExtensionPath." -ForegroundColor Green
         return $true
     }
@@ -253,13 +261,51 @@ Function Test-IsNmfsExtensionInstalled {
 }
 
 Function Test-IsKamitorRepoCloned {
-    # Uses $ScriptScopeCloneRepoName (from script scope) and $Global:FullClonePath (from global scope)
     Write-Host "Checking if '$ScriptScopeCloneRepoName' repository is cloned to '$($Global:FullClonePath)'..."
-    if (Test-Path (Join-Path -Path $Global:FullClonePath -ChildPath ".git") -PathType Container) { # Check for .git folder
+    if (Test-Path (Join-Path -Path $Global:FullClonePath -ChildPath ".git") -PathType Container) { 
         Write-Host "Repository found at $($Global:FullClonePath)." -ForegroundColor Green
         return $true
     }
     Write-Host "Repository NOT found at $($Global:FullClonePath) (or is not a git repository)." -ForegroundColor Yellow
+    return $false
+}
+
+Function Test-IsOutlookInstalled {
+    Write-Host "Checking for Microsoft Outlook installation..."
+    $outlookPaths = @(
+        (Join-Path $env:ProgramFiles "Microsoft Office\root\Office16\OUTLOOK.EXE"),
+        (Join-Path ${env:ProgramFiles(x86)} "Microsoft Office\root\Office16\OUTLOOK.EXE"),
+        (Join-Path $env:ProgramFiles "Microsoft Office\Office16\OUTLOOK.EXE"), 
+        (Join-Path ${env:ProgramFiles(x86)} "Microsoft Office\Office16\OUTLOOK.EXE"),
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\outlookforwindows.exe") 
+    )
+    $outlookAppxPath = Get-AppxPackage -Name "microsoft.outlookforwindows" -ErrorAction SilentlyContinue
+            
+    $foundPath = $null
+    foreach ($path in $outlookPaths) {
+        if (Test-Path $path -PathType Leaf) {
+            $foundPath = $path
+            break
+        }
+    }
+
+    if ($foundPath) {
+        Write-Host "Microsoft Outlook (Desktop) executable found at: $foundPath" -ForegroundColor Green
+        return $true
+    } elseif ($outlookAppxPath) {
+        Write-Host "Microsoft Outlook (Store App 'microsoft.outlookforwindows') found." -ForegroundColor Green
+        return $true
+    }
+
+    $mapiPath = "HKLM:\SOFTWARE\Clients\Mail"
+    if (Test-Path $mapiPath) {
+        $defaultClient = Get-ItemProperty -Path $mapiPath -Name "(Default)" -ErrorAction SilentlyContinue
+        if ($defaultClient -and (($defaultClient.'(Default)' -match "Outlook") -or ($defaultClient.'(Default)' -match "Microsoft Outlook"))) {
+            Write-Host "Outlook appears to be the default MAPI client via registry." -ForegroundColor Green
+            return $true
+        }
+    }
+    Write-Host "Microsoft Outlook does not appear to be installed or readily detectable." -ForegroundColor Yellow
     return $false
 }
 
@@ -278,22 +324,20 @@ if (-not (Test-IsChocolateyInstalled)) {
         $Global:OverallSuccess = $false
     }
 }
-# Ensure Chocolatey profile is loaded if already installed or just installed
 $chocoProfilePathGlobal = Join-Path -Path $env:ProgramData -ChildPath "chocolatey\helpers\chocolateyProfile.psm1"
-if ($Global:OverallSuccess -and (Test-Path $chocoProfilePathGlobal)) { # Only if previous steps allow
+if ($Global:OverallSuccess -and (Test-Path $chocoProfilePathGlobal)) { 
     Import-Module $chocoProfilePathGlobal -ErrorAction SilentlyContinue
 }
 
 
-# Proceed only if Chocolatey is available and previous steps were successful
 if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
 
     # 2. Git
     if (-not (Test-IsGitInstalled)) {
         if (Invoke-SubScript -SubScriptName "Install-Git.ps1" -StepDescription "Git Installation") {
             Refresh-CurrentSessionPath
-        } # Error handled by Invoke-SubScript
-        Test-IsGitInstalled # Re-test and display status
+        } 
+        Test-IsGitInstalled 
     }
 
     # 3. Python & Pip
@@ -307,10 +351,10 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
                 Write-Host "Python is now detected after installation attempt." -ForegroundColor Green
             } else {
                 Write-Error "Python installation was attempted but Python is still not detected."
-                $Global:OverallSuccess = $false # Explicitly mark failure for this critical step
+                $Global:OverallSuccess = $false 
             }
         } else {
-             $Global:OverallSuccess = $false # Python install sub-script failed
+             $Global:OverallSuccess = $false 
         }
     }
 
@@ -322,15 +366,13 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
                 & python -m ensurepip --upgrade
                 if ($LASTEXITCODE -ne 0) {
                     Write-Error "Attempt to run 'python -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
-                    # $Global:OverallSuccess = $false # Consider if this is fatal for the whole script
                 } else {
                     Write-Host "'python -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
                     Refresh-CurrentSessionPath
-                    Test-IsPipInstalled # Re-check and display status
+                    Test-IsPipInstalled 
                 }
             } catch {
                  Write-Error "An error occurred while trying to run 'python -m ensurepip --upgrade': $($_.Exception.Message)"
-                 # $Global:OverallSuccess = $false
             }
         }
     }
@@ -354,15 +396,13 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
     # 6. Visual Studio Code
     if ($Global:OverallSuccess -and -not (Test-IsVSCodeInstalled)) {
         Invoke-SubScript -SubScriptName "Install-VSCode.ps1" -StepDescription "Visual Studio Code Installation"
-        Test-IsVSCodeInstalled # Re-test, path refresh not usually needed for VSCode app itself
+        Test-IsVSCodeInstalled 
     }
-
-    # --- Language Specific Packages & Tools (after main tools are confirmed) ---
 
     # 7. Python Packages
     if ($Global:OverallSuccess -and $pythonSuccessfullyInstalledOrPresent -and (Test-IsPipInstalled)) {
         Invoke-SubScript -SubScriptName "Install-PythonPackages.ps1" -StepDescription "Python Packages Installation"
-    } elseif ($Global:OverallSuccess) { # Only show warning if we haven't failed out earlier
+    } elseif ($Global:OverallSuccess) { 
         Write-Warning "Skipping Python packages installation."
         if (-not $pythonSuccessfullyInstalledOrPresent) { Write-Warning "Reason: Python is not available." }
         elseif (-not (Test-IsPipInstalled)) { Write-Warning "Reason: Pip is not available or could not be installed/ensured." }
@@ -398,27 +438,35 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         }
     } elseif ($Global:OverallSuccess) { Write-Warning "Skipping repository cloning: Git is not available." }
 
-} elseif (-not (Test-IsChocolateyInstalled)) { # If the initial Choco check failed and install also failed.
+} elseif (-not (Test-IsChocolateyInstalled)) { 
     Write-Error "Cannot proceed with tool installations because Chocolatey is not available."
-    # $Global:OverallSuccess is already false from the Choco install check
 }
 
 # 12. Install Custom Fonts
-# Create an 'assets/fonts' subdirectory in the same location as Main-Installer.ps1
-# and place QTDublinIrish.otf (and any other required fonts) there.
 $fontDir = Join-Path -Path $Global:MainInstallerBaseDir -ChildPath "assets\fonts"
-if (Test-Path $fontDir -PathType Container) {
-    if (Get-ChildItem -Path $fontDir -Filter "*.otf" -ErrorAction SilentlyContinue) { # Or *.ttf etc.
-        Invoke-SubScript -SubScriptName "Install-CustomFonts.ps1" -StepDescription "Custom Font Installation"
+if ($Global:OverallSuccess) { # Only attempt if previous steps were generally okay
+    if (Test-Path $fontDir -PathType Container) {
+        # Check if there are any .otf or .ttf files in the directory
+        if ((Get-ChildItem -Path $fontDir -Filter "*.otf" -ErrorAction SilentlyContinue) -or (Get-ChildItem -Path $fontDir -Filter "*.ttf" -ErrorAction SilentlyContinue)) {
+            Invoke-SubScript -SubScriptName "Install-CustomFonts.ps1" -StepDescription "Custom Font Installation"
+        } else {
+            Write-Host "No .otf or .ttf font files found in '$fontDir'. Skipping custom font installation." -ForegroundColor DarkGray
+        }
     } else {
-        Write-Host "No font files found in '$fontDir'. Skipping custom font installation." -ForegroundColor DarkGray
+        Write-Warning "Font directory '$fontDir' not found. Skipping custom font installation."
+        Write-Warning "Create the directory and place font files (e.g., QTDublinIrish.otf) there if needed."
     }
-} else {
-    Write-Warning "Font directory '$fontDir' not found. Skipping custom font installation."
-    Write-Warning "Create the directory and place font files (e.g., QTDublinIrish.otf) there if needed."
 }
 
-
+# 13. Check for Microsoft Outlook
+if ($Global:OverallSuccess) { # Only check if previous steps were generally okay
+    Write-Host "`n--- Checking for Microsoft Outlook ---" -ForegroundColor Cyan
+    if (-not (Test-IsOutlookInstalled)) {
+        Write-Warning "Microsoft Outlook was not detected. If your project requires Outlook interaction, please ensure it is installed and configured manually."
+    } else {
+        Write-Host "Microsoft Outlook appears to be installed. Please ensure it is configured with a mail profile if required by the project." -ForegroundColor Green
+    }
+}
 
 # --- Final Summary ---
 Write-Host "`n--- Installation Orchestration Attempted ---" -ForegroundColor Yellow
@@ -438,8 +486,10 @@ Write-Host "   within the directory where this script was run: $($Global:nmfsExt
 Write-Host " - The main project files from '$ScriptScopeCloneRepoName' should be in: $($Global:FullClonePath) (if cloning was successful)."
 Write-Host "   Navigate there to use the project, e.g., 'cd ""$($Global:FullClonePath)""' and then 'quarto render yourfile.qmd'."
 Write-Host ""
-Write-Host "Manual steps still potentially required:"
-Write-Host " 1. Install custom font (e.g., QTDublinIrish.otf) if needed by the project."
-Write-Host " 2. Ensure Microsoft Outlook is configured if the project requires it."
+Write-Host "Post-installation actions:"
+Write-Host " 1. Custom font installation was attempted. If 'QTDublinIrish.otf' (or others) are still not available in applications,"
+Write-Host "    a system REBOOT or LOGOFF/LOGON might be necessary."
+Write-Host " 2. Microsoft Outlook installation was checked. If your project requires it, ensure Outlook is installed and"
+Write-Host "    properly configured with a mail profile."
 
 Read-Host -Prompt "Script finished. Press Enter to exit."
