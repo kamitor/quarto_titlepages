@@ -1,0 +1,100 @@
+# Installation Requirements and Steps for kamitor/quarto_titlepages on Windows
+
+## I. Overview
+This document outlines the necessary tools, programs, and steps to set up the environment for running the Quarto project and examples contained within the `kamitor/quarto_titlepages` GitHub repository on a Windows 10 operating system. It also includes the installation of the `nmfs-opensci/quarto_titlepages` extension. The primary method of installation described here is through a PowerShell script that automates the setup of system-wide tools, fetches the project files from GitHub, and installs a base Quarto extension.
+
+## II. Target Environment
+*   **Operating System:** Windows 10 (default installation, nothing pre-installed by the user).
+
+## III. Prerequisites for Running the Installer Script
+*   **Shell:** Windows PowerShell.
+*   **Permissions:** The script MUST be run with Administrator privileges.
+*   **Execution Policy:** The script will ensure the execution policy for the current process is set to `Bypass` (e.g., `Set-ExecutionPolicy Bypass -Scope Process -Force`) before attempting to download and execute external scripts like the Chocolatey installer. This is a temporary setting for the script's session only.
+*   **Internet Connection:** Required to download Chocolatey, all tools, packages, extensions, and the `kamitor/quarto_titlepages` GitHub repository.
+*   **User Confirmation:** The script will pause and ask for confirmation that it is being run as Administrator before proceeding.
+
+## IV. Core Software & Tools to be Installed by the PowerShell Script
+The installer script will attempt to install the following, primarily using the Chocolatey package manager:
+
+1.  **Chocolatey:**
+    *   **Purpose:** A package manager for Windows.
+    *   **Action:** Installed if not already present.
+2.  **Git:**
+    *   **Purpose:** Version control system. Required to clone the `kamitor/quarto_titlepages` repository. Git and its associated Unix tools will be added to the system PATH.
+    *   **Action:** Installed via Chocolatey (`choco install git.install -params '"/GitAndUnixToolsOnPath"' --yes --force`).
+3.  **Python (with Pip):**
+    *   **Purpose:** Programming language environment. Pip is Python's package installer.
+    *   **Action:** Installed via Chocolatey (`choco install python --yes --force`). Pip is typically included.
+4.  **R:**
+    *   **Purpose:** Programming language and environment for statistical computing and graphics.
+    *   **Action:** Installed via Chocolatey (`choco install r.project --yes --force`).
+5.  **Quarto CLI:**
+    *   **Purpose:** An open-source scientific and technical publishing system.
+    *   **Action:** Installed via Chocolatey (`choco install quarto-cli --yes --force`).
+6.  **Visual Studio Code (VSCode):**
+    *   **Purpose:** A source code editor.
+    *   **Action:** Installed via Chocolatey (`choco install vscode --yes --force`).
+
+## V. Language-Specific Dependencies & Libraries (Installed by PowerShell Script)
+### A. Python Packages
+*   **Installation Method:** `pip install <package_name>` (after Python is installed and PATH is refreshed)
+*   **Packages:** `pandas pywin32 numpy scipy matplotlib seaborn openpyxl requests`
+
+### B. R Packages
+*   **Installation Method:** `Rscript -e "install.packages(...)"` (after R is installed and PATH is refreshed)
+*   **Packages:** `c('tidyverse', 'fmsb', 'scales', 'rmarkdown', 'knitr', 'openxlsx', 'readxl')`
+    *   *Note: Installation of these packages, especially `tidyverse`, can be time-consuming.*
+
+## VI. Quarto-Specific Setup (Installed by PowerShell Script)
+1.  **TinyTeX (LaTeX Distribution):**
+    *   **Purpose:** Required by Quarto for PDF output.
+    *   **Action:** Installed via `quarto install tool tinytex` (after Quarto CLI is installed and PATH is refreshed).
+2.  **`nmfs-opensci/quarto_titlepages` Extension:**
+    *   **Purpose:** Base Quarto extension for title pages.
+    *   **Action:** Installed via `quarto install extension nmfs-opensci/quarto_titlepages --no-prompt`. This command typically installs the extension into the current directory's `_extensions` folder. **For a "global" setup script, we need to consider where `quarto install extension` will place this if not run from within a specific project. It might try to install it in the directory where the script is run. This might be okay, or we might need to advise the user to run this command themselves within their projects, or the script could create a default project/working directory first.** For now, the script will run it as you originally had it.
+
+## VII. Project Files Setup: `kamitor/quarto_titlepages`
+1.  **Cloning the Repository:**
+    *   **Action:** The script will clone the `https://github.com/kamitor/quarto_titlepages.git` repository.
+    *   **Proposed Default Location:** The script will attempt to clone it into `$HOME\Documents\GitHub\kamitor_quarto_titlepages`. The user will be informed of this location. The script will create the parent `GitHub` directory if it doesn't exist.
+    *   **Purpose:** This makes all files from your `kamitor/quarto_titlepages` repository (including `.qmd` example/document files and any adapted title page logic) available on the user's machine for them to run and use.
+
+## VIII. Overall Installation Script Flow (Summary)
+The PowerShell script automates the following sequence:
+1.  **Initial Check:** Reminds the user to run as Administrator, waits for confirmation, ensures execution policy is permissive for the current process.
+2.  **Chocolatey Installation:** Checks for Chocolatey; if not found, installs it. PATH is refreshed.
+3.  **Core Tool Installation (Git, Python, R, Quarto CLI, VSCode):** Installs each tool using `choco`. PATH is refreshed after each critical install.
+4.  **Python Package Installation:** Installs the specified list of Python packages using `pip`.
+5.  **R Package Installation:** Installs the specified list of R packages using `Rscript`.
+6.  **TinyTeX Installation:** Uses Quarto to install TinyTeX.
+7.  **`nmfs-opensci/quarto_titlepages` Extension Installation:** Installs this base extension using `quarto install extension`.
+8.  **Cloning `kamitor/quarto_titlepages` Repository:** Clones your project to a default local directory.
+9.  **Completion & Notes:** Informs the user that all steps have been attempted, provides the location of the cloned repository, and advises on potential PATH variable propagation issues and how to start using the cloned project.
+
+## IX. Manual Post-Installation Steps (Not covered by the current script)
+The following items need to be handled manually by the user after the script completes:
+1.  **Install Custom Font:** The font `QTDublinIrish.otf` needs to be installed.
+2.  **Microsoft Outlook Configuration:** Ensure Outlook is installed and configured if any part of the `kamitor/quarto_titlepages` project requires interaction with it.
+
+## X. Important Considerations & Potential Issues
+*   **Administrator Privileges:** Crucial.
+*   **PATH Environment Variable:** New PowerShell window might be needed.
+*   **Execution Policy:** Handled for the script's process.
+*   **Timeouts & Duration:** Installations are lengthy.
+*   **Error Handling:** Basic error checking.
+*   **Internet Connection:** Essential.
+*   **`quarto install extension` Context:** The `nmfs-opensci/quarto_titlepages` extension will be installed relative to where the script is run. If this script is run from `C:\Downloads`, the extension might end up in `C:\Downloads\_extensions`. This is often not ideal for general availability. A true "global" Quarto extension installation mechanism is less common; extensions are usually project-specific. For a system setup script, this means the installed `nmfs-opensci` extension might not be automatically available to *all new projects* unless the user copies it or reinstalls it within their project. *This is a behavior of Quarto we need to accept or address by instructing the user.*
+*   **Repository Clone Location:** Default is `$HOME\Documents\GitHub\kamitor_quarto_titlepages`.
+
+---
+
+My apologies again for that misunderstanding. It's good we caught it.
+
+**So, the script will now include:**
+1.  Git installation.
+2.  Installation of `nmfs-opensci/quarto_titlepages` extension (as in your original script).
+3.  Cloning of your `kamitor/quarto_titlepages` repository.
+
+The step count in the user messages will also need to be updated.
+
+Are you happy with this revised plan? We are now back to including the `nmfs-opensci/quarto_titlepages` installation.
