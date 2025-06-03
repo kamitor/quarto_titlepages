@@ -138,7 +138,7 @@ The system relies on a `cleaned_master.csv` file located in the `data/` director
 This script reads `data/cleaned_master.csv` and generates a PDF report for each unique company listed.
 ```bash
 python generate_reports.py
-
+```
 
 Generated PDFs will be saved in the reports/ subfolder, named after the company.
 
