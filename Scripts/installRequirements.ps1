@@ -112,24 +112,72 @@ Function Test-IsGitInstalled {
     return $false
 }
 
-Function Test-IsPythonInstalled {
-    Write-Host "Checking for Python..."
-    if (Get-Command python -ErrorAction SilentlyContinue) {
-        Write-Host "Python found: $( (python --version 2>&1 | Out-String).Trim() )" -ForegroundColor Green
-        return $true
+# In Main-Installer.ps1, around line 333
+# 3. Python & Pip
+$pythonSuccessfullyInstalledOrPresent = Test-IsPythonInstalled
+if (-not $pythonSuccessfullyInstalledOrPresent) {
+    Write-Host "Python not found. Attempting installation via sub-script."
+    if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
+        Refresh-CurrentSessionPath # First refresh attempt
+        # Try to get the path to python.exe explicitly after install
+        $pythonExePath = (Get-Command python -ErrorAction SilentlyContinue).Source
+        if ($pythonExePath) {
+            Write-Host "Python executable found at: $pythonExePath after install. Forcing PATH update for this session."
+            $pythonDir = Split-Path $pythonExePath
+            $scriptsDir = Join-Path $pythonDir "Scripts" # Common location for pip
+            $env:Path = "$pythonDir;$scriptsDir;$($env:Path)" # Prepend to ensure it's found
+            Write-Host "Updated session PATH: $($env:Path)"
+        }
+        if (Test-IsPythonInstalled) { # Test again after explicit path manipulation
+            $pythonSuccessfullyInstalledOrPresent = $true
+            Write-Host "Python is now detected after installation attempt." -ForegroundColor Green
+        } else {
+            Write-Error "Python installation was attempted but Python is still not detected even after PATH manipulation."
+            $Global:OverallSuccess = $false 
+        }
+    } else {
+         $Global:OverallSuccess = $false 
     }
-    Write-Host "Python not found." -ForegroundColor Yellow
-    return $false
 }
 
-Function Test-IsPipInstalled {
-    Write-Host "Checking for Pip (Python Package Installer)..."
-    if (Get-Command pip -ErrorAction SilentlyContinue) {
-        Write-Host "Pip found: $( (pip --version | Out-String).Trim() )" -ForegroundColor Green
-        return $true
+if ($pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
+    if (-not (Test-IsPipInstalled)) { # If Pip is still not found
+        Write-Warning "Python is installed, but Pip was not found by Get-Command. Attempting to install/ensure Pip using 'python -m ensurepip'..."
+        try {
+            # Explicitly try to use the python found by Get-Command if available
+            $pythonCmd = "python" 
+            if (Get-Command python -ErrorAction SilentlyContinue) {
+                $pythonCmd = (Get-Command python).Source
+                Write-Host "Using specific python path for ensurepip: $pythonCmd" -ForegroundColor DarkGray
+            } else {
+                Write-Warning "Could not resolve 'python' command. ensurepip might fail."
+            }
+
+            Write-Host "Executing: & '$pythonCmd' -m ensurepip --upgrade" -ForegroundColor DarkGray
+            & $pythonCmd -m ensurepip --upgrade # Use call operator if $pythonCmd contains full path
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Attempt to run '$pythonCmd -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
+                # Check if python command itself failed with 9009
+                if ($LASTEXITCODE -eq 9009) {
+                    Write-Error "'python' command was not found when trying to run ensurepip. This indicates a critical PATH issue for Python."
+                }
+            } else {
+                Write-Host "'$pythonCmd -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
+                Refresh-CurrentSessionPath # Refresh again as ensurepip might put pip in a new Scripts dir
+                $pipDir = ""
+                if((Get-Command pip -ErrorAction SilentlyContinue).Source) {
+                    $pipDir = Split-Path (Get-Command pip -ErrorAction SilentlyContinue).Source
+                    if ($env:Path -notlike "*$pipDir*") {
+                        Write-Host "Adding Pip directory '$pipDir' to session PATH."
+                        $env:Path = "$pipDir;$($env:Path)"
+                    }
+                }
+                Test-IsPipInstalled 
+            }
+        } catch {
+             Write-Error "An error occurred while trying to run 'python -m ensurepip --upgrade': $($_.Exception.Message)"
+        }
     }
-    Write-Host "Pip not found." -ForegroundColor Yellow
-    return $false
 }
 
 Function Test-IsRInstalled {

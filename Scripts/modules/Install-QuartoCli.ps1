@@ -5,7 +5,7 @@ Write-Host "Starting Quarto CLI installation via Chocolatey..." -ForegroundColor
 
 try {
     Write-Host "Executing: choco install quarto-cli --yes --force"
-    choco install quarto-cli --yes --force --timeout=3600 # Increased timeout
+    choco install quarto --yes --force --timeout=3600
     
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Quarto CLI installation command (choco) failed with exit code $LASTEXITCODE."
