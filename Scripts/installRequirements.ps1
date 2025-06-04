@@ -1,17 +1,42 @@
 # Main-Installer.ps1
-# Orchestrates the installation of all necessary tools and programs.
+# Orchestrates the installation of all necessary tools and programs for kamitor/quarto_titlepages.
 # REQUIRES: Run this script in PowerShell as Administrator.
 
-# --- Initial Setup ---
-Write-Host "--- Starting Main Installation Orchestrator ---" -ForegroundColor Yellow
+# --- ASCII Art Welcome ---
+Clear-Host
+$Art = @"
+===============================================================================
+        __
+       /  \
+      |----|       L E C T O R A A T
+      |----|
+       \__/        S U P P L Y   C H A I N   F I N A N C E
+        ||
+       /  \
+      |----|       Environment Setup for Recilience Python Report Setup 
+      |----|
+       \__/
+===============================================================================
+"@
+Write-Host $Art -ForegroundColor Cyan
+Write-Host ("-" * 70)
+Write-Host "Welcome to the kamitor/quarto_titlepages Environment Setup Script!" -ForegroundColor Yellow
+Write-Host "This script will attempt to install necessary tools and configure your system."
+Write-Host ("-" * 70)
+Write-Host ""
 
-# Ensure running as Administrator
+# --- Pre-flight Checks ---
+Write-Host "--- Performing Pre-flight System Checks ---" -ForegroundColor Magenta
+
+# 1. Administrator Privileges Check
+Write-Host "Checking for Administrator privileges..." -ForegroundColor Gray
 try {
     $currentIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
     $currentUser = New-Object System.Security.Principal.WindowsPrincipal($currentIdentity)
 
     if (-Not $currentUser.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Error "This script must be run as Administrator. Please re-launch PowerShell as Administrator and try again."
+        Write-Error "ADMINISTRATOR PRIVILEGES REQUIRED: This script must be run as Administrator."
+        Write-Warning "Please re-launch PowerShell using 'Run as Administrator' and try again."
         Read-Host "Press Enter to exit"
         exit 1
     }
@@ -22,7 +47,49 @@ try {
     exit 1
 }
 
-# Set Execution Policy for this process to allow script execution
+# 2. Operating System Check (Windows 10 or newer recommended)
+Write-Host "Checking Operating System version..." -ForegroundColor Gray
+$OS = Get-CimInstance Win32_OperatingSystem
+Write-Host "Operating System: $($OS.Caption), Version: $($OS.Version)"
+if (($OS.Version -split "\.")[0] -lt 10) {
+    Write-Warning "This script is optimized for Windows 10 or newer. You are on an older version ($($OS.Caption)). Some features might not work as expected."
+} else {
+    Write-Host "OS version check passed (Windows 10 or newer)." -ForegroundColor Green
+}
+
+# 3. PowerShell Version Check (Recommended 5.1 or higher, ideally 7+)
+Write-Host "Checking PowerShell version..." -ForegroundColor Gray
+Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+if ($PSVersionTable.PSVersion.Major -lt 5 -or ($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -lt 1) ) {
+    Write-Warning "PowerShell 5.1 or higher is recommended. Your version is $($PSVersionTable.PSVersion)."
+    Write-Warning "Consider upgrading PowerShell for best compatibility: https://aka.ms/PSWindows"
+} else {
+    Write-Host "PowerShell version check passed (5.1+)." -ForegroundColor Green
+}
+
+# 4. Internet Connection Check (Basic)
+Write-Host "Checking for active Internet connection (pinging google.com)..." -ForegroundColor Gray
+if (Test-Connection -ComputerName "google.com" -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+    Write-Host "Internet connection appears to be active." -ForegroundColor Green
+} else {
+    Write-Warning "Could not confirm an active Internet connection by pinging google.com."
+    Write-Warning "An internet connection is required to download tools and packages."
+    # Ask user if they want to proceed without confirmed internet
+    $proceedWithoutInternet = Read-Host "Do you want to attempt to continue anyway? (yes/no)"
+    if ($proceedWithoutInternet -ne 'yes') {
+        Write-Error "Exiting script as per user request due to unconfirmed internet connection."
+        exit 1
+    }
+    Write-Warning "Proceeding without confirmed internet connection at user's risk."
+}
+Write-Host ("-" * 70)
+Write-Host ""
+Read-Host "Pre-flight checks complete. Press Enter to begin the installation process..."
+Write-Host ""
+
+
+# --- Initial Setup (Execution Policy) ---
+# This was already here, just moved slightly to group setup steps
 try {
     Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction Stop
     Write-Host "Execution policy set to Bypass for the current process." -ForegroundColor Green
@@ -73,7 +140,7 @@ Function Invoke-SubScript {
         Write-Host "$StepDescription completed successfully via $SubScriptName." -ForegroundColor Green
         return $true
     } catch {
-        Write-Error "An error occurred while running $SubScriptName for $StepDescription $($_.Exception.Message)"
+        Write-Error "An error occurred while running $SubScriptName for $StepDescription $($_.Exception.Message)" 
         $Global:OverallSuccess = $false
         return $false
     }
@@ -89,7 +156,6 @@ Function Refresh-CurrentSessionPath {
     }
     Write-Host "PATH refresh attempted." -ForegroundColor DarkGray
 }
-
 # --- Test Functions (Check if tools are installed) ---
 
 Function Test-IsChocolateyInstalled {
@@ -112,72 +178,24 @@ Function Test-IsGitInstalled {
     return $false
 }
 
-# In Main-Installer.ps1, around line 333
-# 3. Python & Pip
-$pythonSuccessfullyInstalledOrPresent = Test-IsPythonInstalled
-if (-not $pythonSuccessfullyInstalledOrPresent) {
-    Write-Host "Python not found. Attempting installation via sub-script."
-    if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
-        Refresh-CurrentSessionPath # First refresh attempt
-        # Try to get the path to python.exe explicitly after install
-        $pythonExePath = (Get-Command python -ErrorAction SilentlyContinue).Source
-        if ($pythonExePath) {
-            Write-Host "Python executable found at: $pythonExePath after install. Forcing PATH update for this session."
-            $pythonDir = Split-Path $pythonExePath
-            $scriptsDir = Join-Path $pythonDir "Scripts" # Common location for pip
-            $env:Path = "$pythonDir;$scriptsDir;$($env:Path)" # Prepend to ensure it's found
-            Write-Host "Updated session PATH: $($env:Path)"
-        }
-        if (Test-IsPythonInstalled) { # Test again after explicit path manipulation
-            $pythonSuccessfullyInstalledOrPresent = $true
-            Write-Host "Python is now detected after installation attempt." -ForegroundColor Green
-        } else {
-            Write-Error "Python installation was attempted but Python is still not detected even after PATH manipulation."
-            $Global:OverallSuccess = $false 
-        }
-    } else {
-         $Global:OverallSuccess = $false 
+Function Test-IsPythonInstalled {
+    Write-Host "Checking for Python..."
+    if (Get-Command python -ErrorAction SilentlyContinue) {
+        Write-Host "Python found: $( (python --version 2>&1 | Out-String).Trim() )" -ForegroundColor Green
+        return $true
     }
+    Write-Host "Python not found." -ForegroundColor Yellow
+    return $false
 }
 
-if ($pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
-    if (-not (Test-IsPipInstalled)) { # If Pip is still not found
-        Write-Warning "Python is installed, but Pip was not found by Get-Command. Attempting to install/ensure Pip using 'python -m ensurepip'..."
-        try {
-            # Explicitly try to use the python found by Get-Command if available
-            $pythonCmd = "python" 
-            if (Get-Command python -ErrorAction SilentlyContinue) {
-                $pythonCmd = (Get-Command python).Source
-                Write-Host "Using specific python path for ensurepip: $pythonCmd" -ForegroundColor DarkGray
-            } else {
-                Write-Warning "Could not resolve 'python' command. ensurepip might fail."
-            }
-
-            Write-Host "Executing: & '$pythonCmd' -m ensurepip --upgrade" -ForegroundColor DarkGray
-            & $pythonCmd -m ensurepip --upgrade # Use call operator if $pythonCmd contains full path
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error "Attempt to run '$pythonCmd -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
-                # Check if python command itself failed with 9009
-                if ($LASTEXITCODE -eq 9009) {
-                    Write-Error "'python' command was not found when trying to run ensurepip. This indicates a critical PATH issue for Python."
-                }
-            } else {
-                Write-Host "'$pythonCmd -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
-                Refresh-CurrentSessionPath # Refresh again as ensurepip might put pip in a new Scripts dir
-                $pipDir = ""
-                if((Get-Command pip -ErrorAction SilentlyContinue).Source) {
-                    $pipDir = Split-Path (Get-Command pip -ErrorAction SilentlyContinue).Source
-                    if ($env:Path -notlike "*$pipDir*") {
-                        Write-Host "Adding Pip directory '$pipDir' to session PATH."
-                        $env:Path = "$pipDir;$($env:Path)"
-                    }
-                }
-                Test-IsPipInstalled 
-            }
-        } catch {
-             Write-Error "An error occurred while trying to run 'python -m ensurepip --upgrade': $($_.Exception.Message)"
-        }
+Function Test-IsPipInstalled {
+    Write-Host "Checking for Pip (Python Package Installer)..."
+    if (Get-Command pip -ErrorAction SilentlyContinue) {
+        Write-Host "Pip found: $( (pip --version | Out-String).Trim() )" -ForegroundColor Green
+        return $true
     }
+    Write-Host "Pip not found." -ForegroundColor Yellow
+    return $false
 }
 
 Function Test-IsRInstalled {
@@ -209,13 +227,14 @@ Function Test-IsVSCodeInstalled {
     if (Get-Command choco -ErrorAction SilentlyContinue) {
         $vscodePackageInfo = ""
         try {
-            $vscodePackageInfo = choco list --local-only --exact --name-only --limit-output vscode -r # -r for simple output
+            # -r for machine readable output to simplify parsing
+            $vscodePackageInfo = choco list --local-only --exact --name-only --limit-output vscode -r 
         } catch {
-            # choco list can sometimes throw if no packages are found, even with -r
              Write-Warning "Error checking for VSCode with choco list: $($_.Exception.Message)"
         }
 
-        if ($LASTEXITCODE -eq 0 -and $vscodePackageInfo -match "vscode") { # Check if 'vscode' is in the output
+        # $LASTEXITCODE for choco list is 0 even if package not found, so check output
+        if ($vscodePackageInfo -match "vscode") { 
             Write-Host "VSCode (Chocolatey package 'vscode') is listed as installed by Chocolatey." -ForegroundColor Green
             if (Get-Command code -ErrorAction SilentlyContinue) {
                 Write-Host "VSCode 'code' command is available on PATH." -ForegroundColor Green
@@ -243,7 +262,7 @@ Function Test-IsTinyTeXInstalled {
     }
     
     Write-Host "TinyTeX not found at common user path. Trying 'quarto check' for LaTeX detection..."
-    $quartoCheckOutput = ""
+    # $quartoCheckOutput = "" # Not needed as we assign directly
     $exitCode = 1 
     try {
         $OriginalProgressPreference = $ProgressPreference
@@ -252,39 +271,35 @@ Function Test-IsTinyTeXInstalled {
         $quartoCheckOutputJson = quarto check --json 2>$null
         if ($LASTEXITCODE -eq 0 -and $quartoCheckOutputJson) {
              $checkResult = $quartoCheckOutputJson | ConvertFrom-Json -ErrorAction SilentlyContinue
-             if ($checkResult -and $checkResult.formats.pdf.latex) {
+             if ($checkResult -and $checkResult.formats.pdf.latex) { # Check if property exists and is non-empty/true
                 Write-Host "Quarto check (JSON) indicates a LaTeX distribution is available: $($checkResult.formats.pdf.latex)" -ForegroundColor Green
                 return $true
-             } elseif ($checkResult) { # JSON parsed but no specific latex confirmation
+             } elseif ($checkResult) { 
                 Write-Host "Quarto check (JSON) parsed but did not confirm LaTeX in expected structure." -ForegroundColor Yellow
-             } else { # Failed to parse JSON or JSON was empty
+             } else { 
                 Write-Host "Quarto check (JSON) output was empty or failed to parse. Falling back to text check." -ForegroundColor Yellow
              }
         } else {
-            Write-Host "Quarto check with --json failed or produced no output. Falling back to text check." -ForegroundColor Yellow
+            Write-Host "Quarto check with --json failed (ExitCode: $LASTEXITCODE) or produced no output. Falling back to text check." -ForegroundColor Yellow
         }
 
-        # Fallback to string parsing if JSON failed or no output, or if structure wasn't as expected
         $quartoCheckOutputText = quarto check 2>&1 | Out-String
-        # Regex to match "LaTeX" followed by optional whitespace and then either "[?]" (unicode checkmark) or "[OK]" or "Found"
-        # Need to escape the square brackets for literal match in regex.
-        # The checkmark can be tricky. Let's try a few common representations or just "Found LaTeX".
         if ($LASTEXITCODE -eq 0 -and ($quartoCheckOutputText -match "(?i)LaTeX\s*\[\u2714\]" -or $quartoCheckOutputText -match "(?i)LaTeX\s*\[OK\]" -or $quartoCheckOutputText -match "(?i)Found LaTeX")) {
              Write-Host "Quarto check (text) indicates LaTeX is available." -ForegroundColor Green
              return $true
         } else {
-            Write-Host "Quarto check (text) does not confirm LaTeX. Output (first 300 chars): $($quartoCheckOutputText | Select-Object -First 300)" -ForegroundColor Yellow
+            Write-Host "Quarto check (text) does not confirm LaTeX (ExitCode: $LASTEXITCODE). Output (first 300 chars): $($quartoCheckOutputText | Select-Object -First 300)" -ForegroundColor Yellow
         }
-        $exitCode = $LASTEXITCODE # Capture exit code from the text check attempt
+        $exitCode = $LASTEXITCODE 
     } catch {
-        $quartoCheckOutput = $_.Exception.Message # This would be from the try block itself, not quarto
-        $exitCode = -1 # Indicate error from the try-catch
-        Write-Warning "Exception during Quarto check: $quartoCheckOutput"
+        # $quartoCheckOutput = $_.Exception.Message # This variable isn't used after this
+        Write-Warning "Exception during Quarto check: $($_.Exception.Message)"
+        $exitCode = -1 
     } finally {
         $ProgressPreference = $OriginalProgressPreference
     }
 
-    if ($exitCode -ne 0) { # If all attempts within try failed based on LASTEXITCODE
+    if ($exitCode -ne 0) { 
         Write-Host "Attempt to use 'quarto check' for TinyTeX detection failed or did not find LaTeX. Last ExitCode: $exitCode" -ForegroundColor Yellow
     }
     
@@ -325,30 +340,36 @@ Function Test-IsOutlookInstalled {
         (Join-Path ${env:ProgramFiles(x86)} "Microsoft Office\root\Office16\OUTLOOK.EXE"),
         (Join-Path $env:ProgramFiles "Microsoft Office\Office16\OUTLOOK.EXE"), 
         (Join-Path ${env:ProgramFiles(x86)} "Microsoft Office\Office16\OUTLOOK.EXE"),
-        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\outlookforwindows.exe") 
+        # For the "new" Outlook (Monarch) from Microsoft Store
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\outlookforwindows.exe"),
+        (Join-Path $env:ProgramW6432 "Microsoft Office\root\Office16\OUTLOOK.EXE") # Ensure 64-bit Program Files is checked if script runs as 32-bit on 64-bit OS
     )
-    $outlookAppxPath = Get-AppxPackage -Name "microsoft.outlookforwindows" -ErrorAction SilentlyContinue
+    # Remove duplicates that might arise from env vars on different systems
+    $uniqueOutlookPaths = $outlookPaths | Select-Object -Unique
+
+    $outlookAppxPackage = Get-AppxPackage -Name "microsoft.outlookforwindows" -ErrorAction SilentlyContinue
             
     $foundPath = $null
-    foreach ($path in $outlookPaths) {
-        if (Test-Path $path -PathType Leaf) {
+    foreach ($path in $uniqueOutlookPaths) {
+        if ($path -and (Test-Path $path -PathType Leaf)) { # Check if path is not null/empty before Test-Path
             $foundPath = $path
             break
         }
     }
 
     if ($foundPath) {
-        Write-Host "Microsoft Outlook (Desktop) executable found at: $foundPath" -ForegroundColor Green
+        Write-Host "Microsoft Outlook (Desktop/Legacy) executable found at: $foundPath" -ForegroundColor Green
         return $true
-    } elseif ($outlookAppxPath) {
-        Write-Host "Microsoft Outlook (Store App 'microsoft.outlookforwindows') found." -ForegroundColor Green
+    } elseif ($outlookAppxPackage) {
+        Write-Host "Microsoft Outlook (Store App 'microsoft.outlookforwindows') package found." -ForegroundColor Green
         return $true
     }
 
+    # Fallback: Check registry for default MAPI client
     $mapiPath = "HKLM:\SOFTWARE\Clients\Mail"
     if (Test-Path $mapiPath) {
         $defaultClient = Get-ItemProperty -Path $mapiPath -Name "(Default)" -ErrorAction SilentlyContinue
-        if ($defaultClient -and (($defaultClient.'(Default)' -match "Outlook") -or ($defaultClient.'(Default)' -match "Microsoft Outlook"))) {
+        if ($defaultClient -and $defaultClient.'(Default)' -and (($defaultClient.'(Default)' -match "Outlook") -or ($defaultClient.'(Default)' -match "Microsoft Outlook"))) {
             Write-Host "Outlook appears to be the default MAPI client via registry." -ForegroundColor Green
             return $true
         }
@@ -356,7 +377,6 @@ Function Test-IsOutlookInstalled {
     Write-Host "Microsoft Outlook does not appear to be installed or readily detectable." -ForegroundColor Yellow
     return $false
 }
-
 
 # --- Orchestration Logic ---
 Write-Host "`nStarting installation checks and process..."
@@ -378,6 +398,7 @@ if ($Global:OverallSuccess -and (Test-Path $chocoProfilePathGlobal)) {
 }
 
 
+# Proceed only if Chocolatey is available and previous steps were successful
 if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
 
     # 2. Git
@@ -385,7 +406,7 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         if (Invoke-SubScript -SubScriptName "Install-Git.ps1" -StepDescription "Git Installation") {
             Refresh-CurrentSessionPath
         } 
-        Test-IsGitInstalled 
+        Test-IsGitInstalled # Re-test and display status
     }
 
     # 3. Python & Pip
@@ -393,30 +414,59 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
     if (-not $pythonSuccessfullyInstalledOrPresent) {
         Write-Host "Python not found. Attempting installation via sub-script."
         if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
-            Refresh-CurrentSessionPath
-            if (Test-IsPythonInstalled) {
+            Refresh-CurrentSessionPath # First refresh attempt
+            $pythonExePath = (Get-Command python -ErrorAction SilentlyContinue).Source
+            if ($pythonExePath) {
+                Write-Host "Python executable found at: $pythonExePath after install. Attempting to update session PATH."
+                $pythonDir = Split-Path $pythonExePath
+                $scriptsDir = Join-Path $pythonDir "Scripts" 
+                if ($env:Path -notlike "*$pythonDir*") { $env:Path = "$pythonDir;$($env:Path)" }
+                if ($env:Path -notlike "*$scriptsDir*") { $env:Path = "$scriptsDir;$($env:Path)" }
+                Write-Host "Updated session PATH segment for Python (may not reflect full system PATH): $($env:Path | Select-Object -First 300)..."
+            }
+            if (Test-IsPythonInstalled) { # Test again after explicit path manipulation
                 $pythonSuccessfullyInstalledOrPresent = $true
                 Write-Host "Python is now detected after installation attempt." -ForegroundColor Green
             } else {
-                Write-Error "Python installation was attempted but Python is still not detected."
+                Write-Error "Python installation was attempted but Python is still not detected even after PATH manipulation."
                 $Global:OverallSuccess = $false 
             }
-        } else {
+        } else { # Invoke-SubScript for Python install failed
              $Global:OverallSuccess = $false 
         }
     }
 
     if ($pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
-        if (-not (Test-IsPipInstalled)) {
-            Write-Warning "Python is installed, but Pip was not found. Attempting to install/ensure Pip using 'python -m ensurepip'..."
+        if (-not (Test-IsPipInstalled)) { 
+            Write-Warning "Python is installed, but Pip was not found by Get-Command. Attempting to install/ensure Pip using 'python -m ensurepip'..."
             try {
-                Write-Host "Executing: python -m ensurepip --upgrade" -ForegroundColor DarkGray
-                & python -m ensurepip --upgrade
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Error "Attempt to run 'python -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
+                $pythonCmd = "python" 
+                $pythonResolved = Get-Command python -ErrorAction SilentlyContinue
+                if ($pythonResolved) {
+                    $pythonCmd = $pythonResolved.Source
+                    Write-Host "Using specific python path for ensurepip: $pythonCmd" -ForegroundColor DarkGray
                 } else {
-                    Write-Host "'python -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
-                    Refresh-CurrentSessionPath
+                    Write-Warning "Could not resolve 'python' command with Get-Command. ensurepip might fail if 'python' is not directly on PATH."
+                }
+
+                Write-Host "Executing: & '$pythonCmd' -m ensurepip --upgrade" -ForegroundColor DarkGray
+                & $pythonCmd -m ensurepip --upgrade 
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error "Attempt to run '$pythonCmd -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
+                    if ($LASTEXITCODE -eq 9009) {
+                        Write-Error "'python' command was not found (exit 9009) when trying to run ensurepip. This indicates a critical PATH issue for Python."
+                    }
+                } else {
+                    Write-Host "'$pythonCmd -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
+                    Refresh-CurrentSessionPath 
+                    $pipExePath = (Get-Command pip -ErrorAction SilentlyContinue).Source
+                    if ($pipExePath) {
+                         $pipDir = Split-Path $pipExePath
+                         if ($pipDir -and ($env:Path -notlike "*$pipDir*")) {
+                            Write-Host "Adding Pip directory '$pipDir' to session PATH."
+                            $env:Path = "$pipDir;$($env:Path)"
+                         }
+                    }
                     Test-IsPipInstalled 
                 }
             } catch {
@@ -429,13 +479,35 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
     if ($Global:OverallSuccess -and -not (Test-IsRInstalled)) {
         if (Invoke-SubScript -SubScriptName "Install-R.ps1" -StepDescription "R Installation") {
             Refresh-CurrentSessionPath
+            # Aggressive PATH update for R (experimental)
+            $rInstallDirs = @(
+                "$($env:ProgramFiles)\R",
+                "$($env:ProgramW6432)\R" # For 32-bit PS on 64-bit OS finding 64-bit R, or vice versa
+            )
+            foreach ($rBaseDir in $rInstallDirs) {
+                if (Test-Path $rBaseDir) {
+                    $rVersionDirs = Get-ChildItem -Path $rBaseDir -Directory -ErrorAction SilentlyContinue | Where-Object {$_.Name -match "^R-\d+\.\d+\.\d+$"}
+                    foreach ($rVersionDir in $rVersionDirs) {
+                        $rBinPath = Join-Path $rVersionDir.FullName "bin\x64" # Assuming x64 common
+                        if (Test-Path $rBinPath -and ($env:Path -notlike "*$rBinPath*")) {
+                            Write-Host "Adding R bin path to session PATH: $rBinPath" -ForegroundColor DarkGray
+                            $env:Path = "$rBinPath;$($env:Path)"
+                        }
+                        $rBinPathi386 = Join-Path $rVersionDir.FullName "bin\i386"
+                         if (Test-Path $rBinPathi386 -and ($env:Path -notlike "*$rBinPathi386*")) {
+                            Write-Host "Adding R i386 bin path to session PATH: $rBinPathi386" -ForegroundColor DarkGray
+                            $env:Path = "$rBinPathi386;$($env:Path)"
+                        }
+                    }
+                }
+            }
         }
         Test-IsRInstalled
     }
 
     # 5. Quarto CLI
     if ($Global:OverallSuccess -and -not (Test-IsQuartoCliInstalled)) {
-        if (Invoke-SubScript -SubScriptName "Install-QuartoCli.ps1" -StepDescription "Quarto CLI Installation") {
+        if (Invoke-SubScript -SubScriptName "Install-QuartoCli.ps1" -StepDescription "Quarto CLI Installation") { # Sub-script should use 'quarto', not 'quarto-cli'
             Refresh-CurrentSessionPath
         }
         Test-IsQuartoCliInstalled
@@ -447,9 +519,9 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         Test-IsVSCodeInstalled 
     }
 
-    # 7. Python Packages
+    # 7. Python Packages (uses requirements.txt via Install-PythonPackages.ps1)
     if ($Global:OverallSuccess -and $pythonSuccessfullyInstalledOrPresent -and (Test-IsPipInstalled)) {
-        Invoke-SubScript -SubScriptName "Install-PythonPackages.ps1" -StepDescription "Python Packages Installation"
+        Invoke-SubScript -SubScriptName "Install-PythonPackages.ps1" -StepDescription "Python Packages Installation from requirements.txt"
     } elseif ($Global:OverallSuccess) { 
         Write-Warning "Skipping Python packages installation."
         if (-not $pythonSuccessfullyInstalledOrPresent) { Write-Warning "Reason: Python is not available." }
@@ -488,13 +560,13 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
 
 } elseif (-not (Test-IsChocolateyInstalled)) { 
     Write-Error "Cannot proceed with tool installations because Chocolatey is not available."
+    # $Global:OverallSuccess should already be false from choco check
 }
 
 # 12. Install Custom Fonts
-$fontDir = Join-Path -Path $Global:MainInstallerBaseDir -ChildPath "assets\fonts"
-if ($Global:OverallSuccess) { # Only attempt if previous steps were generally okay
+if ($Global:OverallSuccess) { 
+    $fontDir = Join-Path -Path $Global:MainInstallerBaseDir -ChildPath "assets\fonts" # Ensure $Global:MainInstallerBaseDir is set
     if (Test-Path $fontDir -PathType Container) {
-        # Check if there are any .otf or .ttf files in the directory
         if ((Get-ChildItem -Path $fontDir -Filter "*.otf" -ErrorAction SilentlyContinue) -or (Get-ChildItem -Path $fontDir -Filter "*.ttf" -ErrorAction SilentlyContinue)) {
             Invoke-SubScript -SubScriptName "Install-CustomFonts.ps1" -StepDescription "Custom Font Installation"
         } else {
@@ -502,12 +574,12 @@ if ($Global:OverallSuccess) { # Only attempt if previous steps were generally ok
         }
     } else {
         Write-Warning "Font directory '$fontDir' not found. Skipping custom font installation."
-        Write-Warning "Create the directory and place font files (e.g., QTDublinIrish.otf) there if needed."
+        Write-Warning "Create the directory (e.g., 'assets\fonts' next to this script) and place font files there if needed."
     }
 }
 
 # 13. Check for Microsoft Outlook
-if ($Global:OverallSuccess) { # Only check if previous steps were generally okay
+if ($Global:OverallSuccess) { 
     Write-Host "`n--- Checking for Microsoft Outlook ---" -ForegroundColor Cyan
     if (-not (Test-IsOutlookInstalled)) {
         Write-Warning "Microsoft Outlook was not detected. If your project requires Outlook interaction, please ensure it is installed and configured manually."
@@ -536,8 +608,8 @@ Write-Host "   Navigate there to use the project, e.g., 'cd ""$($Global:FullClon
 Write-Host ""
 Write-Host "Post-installation actions:"
 Write-Host " 1. Custom font installation was attempted. If 'QTDublinIrish.otf' (or others) are still not available in applications,"
-Write-Host "    a system REBOOT or LOGOFF/LOGON might be necessary."
-Write-Host " 2. Microsoft Outlook installation was checked. If your project requires it, ensure Outlook is installed and"
+Write-Host "    a system REBOOT or LOGOFF/LOGON might be necessary for all applications to recognize them."
+Write-Host " 2. Microsoft Outlook installation was checked. If your project requires it, ensure Outlook is also"
 Write-Host "    properly configured with a mail profile."
 
 Read-Host -Prompt "Script finished. Press Enter to exit."
