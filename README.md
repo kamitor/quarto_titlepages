@@ -1,3 +1,5 @@
+Set-ExecutionPolicy Bypass -Scope Process -Force
+
 # Resilience Report Generator
 
 ## 🌟 Overview
