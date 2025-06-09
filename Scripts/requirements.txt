@@ -1,0 +1,11 @@
+pandas
+pywin32
+numpy
+scipy
+matplotlib
+seaborn
+openpyxl
+requests
+# You can also specify versions, e.g.:
+# pandas>=2.0.0,<3.0.0
+# requests==2.25.1
