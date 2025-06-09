@@ -544,3 +544,194 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         } 
         Test-IsGitInstalled 
     }
+
+        $pythonSuccessfullyInstalledOrPresent = Test-IsPythonInstalled
+    if (-not $pythonSuccessfullyInstalledOrPresent) {
+        Write-Host "Python not found. Attempting installation via sub-script."
+        if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
+            Refresh-CurrentSessionPath 
+            $pythonExePath = (Get-Command python -ErrorAction SilentlyContinue).Source
+            if ($pythonExePath) {
+                Write-Host "Python executable found at: $pythonExePath after install. Attempting to update session PATH."
+                $pythonDir = Split-Path $pythonExePath
+                $scriptsDir = Join-Path $pythonDir "Scripts" 
+                if ($env:Path -notlike "*$pythonDir*") { $env:Path = "$pythonDir;$($env:Path)" }
+                if ($scriptsDir -and (Test-Path $scriptsDir -PathType Container) -and ($env:Path -notlike "*$scriptsDir*")) { $env:Path = "$scriptsDir;$($env:Path)" }
+                Write-Host "Updated session PATH segment for Python (may not reflect full system PATH): $($env:Path | Select-Object -First 300)..."
+            }
+            if (Test-IsPythonInstalled) { 
+                $pythonSuccessfullyInstalledOrPresent = $true
+                Write-Host "Python is now detected after installation attempt." -ForegroundColor Green
+            } else {
+                Write-Error "Python installation was attempted but Python is still not detected even after PATH manipulation."
+                $Global:OverallSuccess = $false 
+            }
+        } else { 
+             $Global:OverallSuccess = $false 
+        }
+    }
+
+    if ($pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
+        if (-not (Test-IsPipInstalled)) { 
+            Write-Warning "Python is installed, but Pip was not found by Get-Command. Attempting to install/ensure Pip using 'python -m ensurepip'..."
+            try {
+                $pythonCmd = "python" 
+                $pythonResolved = Get-Command python -ErrorAction SilentlyContinue
+                if ($pythonResolved) {
+                    $pythonCmd = $pythonResolved.Source
+                    Write-Host "Using specific python path for ensurepip: $pythonCmd" -ForegroundColor DarkGray
+                } else {
+                    Write-Warning "Could not resolve 'python' command with Get-Command. ensurepip might fail if 'python' is not directly on PATH."
+                }
+
+                Write-Host "Executing: & '$pythonCmd' -m ensurepip --upgrade" -ForegroundColor DarkGray
+                & $pythonCmd -m ensurepip --upgrade 
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error "Attempt to run '$pythonCmd -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
+                    if ($LASTEXITCODE -eq 9009) {
+                        Write-Error "'python' command was not found (exit 9009) when trying to run ensurepip. This indicates a critical PATH issue for Python."
+                    }
+                } else {
+                    Write-Host "'$pythonCmd -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
+                    Refresh-CurrentSessionPath 
+                    $pipExePath = (Get-Command pip -ErrorAction SilentlyContinue).Source
+                    if ($pipExePath) {
+                         $pipDir = Split-Path $pipExePath
+                         if ($pipDir -and ($env:Path -notlike "*$pipDir*")) {
+                            Write-Host "Adding Pip directory '$pipDir' to session PATH."
+                            $env:Path = "$pipDir;$($env:Path)"
+                         }
+                    }
+                    Test-IsPipInstalled 
+                }
+            } catch {
+                 Write-Error "An error occurred while trying to run 'python -m ensurepip --upgrade': $($_.Exception.Message)"
+            }
+        }
+    }
+
+    if ($Global:OverallSuccess -and -not (Test-IsRInstalled)) {
+        if (Invoke-SubScript -SubScriptName "Install-R.ps1" -StepDescription "R Installation") {
+            Refresh-CurrentSessionPath
+            $rInstallDirs = @(
+                "$($env:ProgramFiles)\R",
+                "$($env:ProgramW6432)\R" 
+            )
+            foreach ($rBaseDir in $rInstallDirs | Select-Object -Unique) {
+                if ($rBaseDir -and (Test-Path $rBaseDir)) {
+                    $rVersionDirs = Get-ChildItem -Path $rBaseDir -Directory -ErrorAction SilentlyContinue | Where-Object {$_.Name -match "^R-\d+\.\d+\.\d+$"}
+                    foreach ($rVersionDir in $rVersionDirs) {
+                        $rBinPathX64 = Join-Path $rVersionDir.FullName "bin\x64" 
+                        if (Test-Path $rBinPathX64 -and ($env:Path -notlike "*$rBinPathX64*")) {
+                            Write-Host "Adding R bin path to session PATH: $rBinPathX64" -ForegroundColor DarkGray
+                            $env:Path = "$rBinPathX64;$($env:Path)"
+                        }
+                        $rBinPathi386 = Join-Path $rVersionDir.FullName "bin\i386"
+                         if (Test-Path $rBinPathi386 -and ($env:Path -notlike "*$rBinPathi386*")) {
+                            Write-Host "Adding R i386 bin path to session PATH: $rBinPathi386" -ForegroundColor DarkGray
+                            $env:Path = "$rBinPathi386;$($env:Path)"
+                        }
+                    }
+                }
+            }
+        }
+        Test-IsRInstalled
+    }
+
+    if ($Global:OverallSuccess -and -not (Test-IsQuartoCliInstalled)) {
+        if (Invoke-SubScript -SubScriptName "Install-QuartoCli.ps1" -StepDescription "Quarto CLI Installation") { 
+            Refresh-CurrentSessionPath
+        }
+        Test-IsQuartoCliInstalled
+    }
+
+    if ($Global:OverallSuccess -and -not (Test-IsVSCodeInstalled)) {
+        Invoke-SubScript -SubScriptName "Install-VSCode.ps1" -StepDescription "Visual Studio Code Installation"
+        Test-IsVSCodeInstalled 
+    }
+
+    if ($Global:OverallSuccess -and $pythonSuccessfullyInstalledOrPresent -and (Test-IsPipInstalled)) {
+        Invoke-SubScript -SubScriptName "Install-PythonPackages.ps1" -StepDescription "Python Packages Installation from requirements.txt"
+    } elseif ($Global:OverallSuccess) { 
+        Write-Warning "Skipping Python packages installation."
+        if (-not $pythonSuccessfullyInstalledOrPresent) { Write-Warning "Reason: Python is not available." }
+        elseif (-not (Test-IsPipInstalled)) { Write-Warning "Reason: Pip is not available or could not be installed/ensured." }
+    }
+
+    if ($Global:OverallSuccess -and (Test-IsRInstalled)) {
+        Invoke-SubScript -SubScriptName "Install-RPackages.ps1" -StepDescription "R Packages Installation"
+    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping R packages: R/Rscript is not available." }
+
+    if ($Global:OverallSuccess -and (Test-IsQuartoCliInstalled)) {
+        if (-not (Test-IsTinyTeXInstalled)) {
+            Invoke-SubScript -SubScriptName "Install-TinyTeX.ps1" -StepDescription "TinyTeX Installation (for Quarto)"
+            Test-IsTinyTeXInstalled
+        }
+    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping TinyTeX: Quarto CLI is not available." }
+
+    if ($Global:OverallSuccess -and (Test-IsQuartoCliInstalled)) {
+        if (-not (Test-IsNmfsExtensionInstalled -LocationOfExtensionParentDir $Global:nmfsExtensionInstallLocation)) {
+            Write-Host "The 'nmfs-opensci/quarto_titlepages' extension will be installed in an '_extensions' folder within: $($Global:nmfsExtensionInstallLocation)"
+            Invoke-SubScript -SubScriptName "Install-NmfsQuartoExtension.ps1" -StepDescription "'nmfs-opensci/quarto_titlepages' Quarto Extension Installation"
+            Test-IsNmfsExtensionInstalled -LocationOfExtensionParentDir $Global:nmfsExtensionInstallLocation
+        }
+    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping 'nmfs-opensci/quarto_titlepages' extension: Quarto CLI is not available." }
+
+    if ($Global:OverallSuccess -and (Test-IsGitInstalled)) {
+        if (-not (Test-IsKamitorRepoCloned)) {
+            Invoke-SubScript -SubScriptName "Clone-KamitorRepo.ps1" -StepDescription "Cloning 'kamitor/quarto_titlepages' Repository"
+            Test-IsKamitorRepoCloned
+        }
+    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping repository cloning: Git is not available." }
+
+} elseif (-not (Test-IsChocolateyInstalled)) { 
+    Write-Error "Cannot proceed with tool installations because Chocolatey is not available."
+}
+
+if ($Global:OverallSuccess) { 
+    $fontDir = Join-Path -Path $Global:MainInstallerBaseDir -ChildPath "assets\fonts" 
+    if (Test-Path $fontDir -PathType Container) {
+        if ((Get-ChildItem -Path $fontDir -Filter "*.otf" -ErrorAction SilentlyContinue) -or (Get-ChildItem -Path $fontDir -Filter "*.ttf" -ErrorAction SilentlyContinue)) {
+            Invoke-SubScript -SubScriptName "Install-CustomFonts.ps1" -StepDescription "Custom Font Installation"
+        } else {
+            Write-Host "No .otf or .ttf font files found in '$fontDir'. Skipping custom font installation." -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Warning "Font directory '$fontDir' not found. Skipping custom font installation."
+        Write-Warning "Create the directory (e.g., 'assets\fonts' next to this script) and place font files there if needed."
+    }
+}
+
+if ($Global:OverallSuccess) { 
+    Write-Host "`n--- Checking for Microsoft Outlook ---" -ForegroundColor Cyan
+    if (-not (Test-IsOutlookInstalled)) {
+        Write-Warning "Microsoft Outlook was not detected. If your project requires Outlook interaction, please ensure it is installed and configured manually."
+    } else {
+        Write-Host "Microsoft Outlook appears to be installed. Please ensure it is configured with a mail profile if required by the project." -ForegroundColor Green
+    }
+}
+
+Write-Host "`n--- Installation Orchestration Attempted ---" -ForegroundColor Yellow
+if ($Global:OverallSuccess) {
+    Write-Host "All checked steps appear to have completed successfully or were already satisfied." -ForegroundColor Green
+} else {
+    Write-Warning "One or more steps may have failed or were skipped due to prior failures. Please review the output above."
+}
+
+Write-Host "`nIMPORTANT NOTES:" -ForegroundColor Yellow
+Write-Host " - If any 'command not found' errors occurred for newly installed tools, despite installation attempts,"
+Write-Host "   it might be due to PATH environment variable updates not fully propagating in this single session."
+Write-Host "   In such cases, CLOSE THIS POWERSHELL WINDOW AND OPEN A NEW ADMINISTRATOR POWERSHELL WINDOW."
+Write-Host "   The commands should then be available."
+Write-Host " - The 'nmfs-opensci/quarto_titlepages' extension was attempted to be installed into an '_extensions' folder"
+Write-Host "   within the directory where this script was run: $($Global:nmfsExtensionInstallLocation)\_extensions"
+Write-Host " - The main project files from '$ScriptScopeCloneRepoName' should be in: $($Global:FullClonePath) (if cloning was successful)."
+Write-Host "   Navigate there to use the project, e.g., 'cd ""$($Global:FullClonePath)""' and then 'quarto render yourfile.qmd'."
+Write-Host ""
+Write-Host "Post-installation actions:"
+Write-Host " 1. Custom font installation was attempted. If 'QTDublinIrish.otf' (or others) are still not available in applications,"
+Write-Host "    a system REBOOT or LOGOFF/LOGON might be necessary for all applications to recognize them."
+Write-Host " 2. Microsoft Outlook installation was checked. If your project requires it, ensure Outlook is also"
+Write-Host "    properly configured with a mail profile."
+
+Read-Host -Prompt "Script finished. Press Enter to exit."

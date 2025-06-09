@@ -1,5 +1,21 @@
 Set-ExecutionPolicy Bypass -Scope Process -Force
 
+
+pip install win32
+
+
+
+Cleandata fix Masterdatabase naar CSV gaat toch niet goed
+
+QUarto CLI Also not installed default:
+
+moet gefixed worden.
+
+
+
+
+
+
 # Resilience Report Generator
 
 ## 🌟 Overview
