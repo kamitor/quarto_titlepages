@@ -256,23 +256,31 @@ Function Test-IsTinyTeXInstalled {
     }
 
     $tinytexPathUser = Join-Path $env:APPDATA "TinyTeX"
-    # Path to check for pdflatex.exe based on typical TinyTeX structure and quarto check output
-    # The 'quarto check' output often shows something like 'TinyTeX\bin\windows\'
-    $pdflatexRelativePathSegments = @("bin", "windows", "pdflatex.exe") 
-    $pdflatexFullPath = Join-Path -Path $tinytexPathUser -ChildPath $pdflatexRelativePathSegments
+    # Correctly form the full path to pdflatex.exe
+    $pdflatexFullPath = Join-Path -Path $tinytexPathUser -ChildPath "bin\win32\pdflatex.exe" # Common path, was 'bin\windows' before, let's try 'win32' as often seen
+                                                                                         # Or use: Join-Path (Join-Path $tinytexPathUser "bin") "win32\pdflatex.exe"
 
+    Write-Host "Checking for TinyTeX pdflatex at: $pdflatexFullPath" -ForegroundColor DarkGray
     if (Test-Path $pdflatexFullPath -PathType Leaf) {
         Write-Host "TinyTeX pdflatex.exe found at user path: $pdflatexFullPath" -ForegroundColor Green
         return $true
+    } else {
+        # Try the other common path variation just in case
+        $pdflatexFullPathAlt = Join-Path -Path $tinytexPathUser -ChildPath "bin\windows\pdflatex.exe"
+        Write-Host "Checking for TinyTeX pdflatex at alternate path: $pdflatexFullPathAlt" -ForegroundColor DarkGray
+        if (Test-Path $pdflatexFullPathAlt -PathType Leaf) {
+            Write-Host "TinyTeX pdflatex.exe found at user path: $pdflatexFullPathAlt" -ForegroundColor Green
+            return $true
+        }
     }
     
-    Write-Host "TinyTeX pdflatex.exe not found via direct path check ($pdflatexFullPath). Trying 'quarto check' for LaTeX detection..."
-    $exitCode = 1 # Default to failure for the 'quarto check' part
+    Write-Host "TinyTeX pdflatex.exe not found via direct path checks. Trying 'quarto check' for LaTeX detection..."
+    $exitCode = 1 
     try {
         $OriginalProgressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
         
-        $quartoCheckOutputJson = quarto check --json 2>$null # Suppress stderr for cleaner JSON attempt
+        $quartoCheckOutputJson = quarto check --json 2>$null 
         if ($LASTEXITCODE -eq 0 -and $quartoCheckOutputJson) {
              $checkResult = $quartoCheckOutputJson | ConvertFrom-Json -ErrorAction SilentlyContinue
              if ($checkResult -and $checkResult.formats.pdf.latex) { 
@@ -287,7 +295,6 @@ Function Test-IsTinyTeXInstalled {
             Write-Host "Quarto check with --json failed (ExitCode: $LASTEXITCODE) or produced no output. Falling back to text check." -ForegroundColor Yellow
         }
 
-        # Fallback to string parsing if JSON failed or no output, or if structure wasn't as expected
         $quartoCheckOutputText = quarto check 2>&1 | Out-String
         if ($LASTEXITCODE -eq 0 -and ($quartoCheckOutputText -match "(?i)LaTeX\s*\[\u2714\]" -or $quartoCheckOutputText -match "(?i)LaTeX\s*\[OK\]" -or $quartoCheckOutputText -match "(?i)Found LaTeX")) {
              Write-Host "Quarto check (text) indicates LaTeX is available." -ForegroundColor Green
@@ -295,15 +302,15 @@ Function Test-IsTinyTeXInstalled {
         } else {
             Write-Host "Quarto check (text) does not confirm LaTeX (ExitCode: $LASTEXITCODE). Output (first 300 chars): $($quartoCheckOutputText | Select-Object -First 300)" -ForegroundColor Yellow
         }
-        $exitCode = $LASTEXITCODE # Capture exit code from the last 'quarto check' text attempt
+        $exitCode = $LASTEXITCODE 
     } catch {
         Write-Warning "Exception during Quarto check for TinyTeX: $($_.Exception.Message)"
-        $exitCode = -1 # Indicate an error from the try-catch block itself
+        $exitCode = -1 
     } finally {
-        $ProgressPreference = $OriginalProgressPreference # Reset preference
+        $ProgressPreference = $OriginalProgressPreference 
     }
 
-    if ($exitCode -ne 0) { # This condition reflects if the 'quarto check' attempts failed or didn't find LaTeX
+    if ($exitCode -ne 0) { 
         Write-Host "Attempt to use 'quarto check' for TinyTeX detection failed or did not find LaTeX. Last ExitCode for 'quarto check': $exitCode" -ForegroundColor Yellow
     }
     
@@ -413,69 +420,126 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         Test-IsGitInstalled # Re-test and display status
     }
 
-    # 3. Python & Pip
+        # 3. Python & Pip
+    Write-Host "`n--- Processing Python & Pip ---" -ForegroundColor Cyan
     $pythonSuccessfullyInstalledOrPresent = Test-IsPythonInstalled
     if (-not $pythonSuccessfullyInstalledOrPresent) {
-        Write-Host "Python not found. Attempting installation via sub-script."
+        Write-Host "Python not found by initial check. Attempting installation via sub-script..."
         if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
-            Refresh-CurrentSessionPath # First refresh attempt
+            Write-Host "Python installation sub-script completed. Refreshing PATH and attempting to locate Python..." -ForegroundColor DarkGray
+            Refresh-CurrentSessionPath 
+
+            # Attempt 1 to find python.exe after install
             $pythonExePath = (Get-Command python -ErrorAction SilentlyContinue).Source
-            if ($pythonExePath) {
-                Write-Host "Python executable found at: $pythonExePath after install. Attempting to update session PATH."
+            
+            if (-not $pythonExePath) {
+                Write-Warning "Get-Command python did not immediately find python.exe after install and refresh."
+                Write-Host "Probing common Chocolatey install paths for Python..." -ForegroundColor DarkGray
+                # Common choco python package install path pattern (may vary based on exact choco package)
+                # This is a guess; the python.org installer usually puts it in C:\PythonXX or %LOCALAPPDATA%\Programs\Python\PythonXX
+                $chocoPythonBase = Join-Path $env:ProgramData "chocolatey\lib"
+                $pythonPackageDirs = Get-ChildItem -Path $chocoPythonBase -Directory -Filter "python*" -ErrorAction SilentlyContinue
+                foreach ($pkgDir in $pythonPackageDirs) {
+                    $pythonToolsDir = Join-Path $pkgDir.FullName "tools"
+                    if (Test-Path (Join-Path $pythonToolsDir "python.exe")) {
+                        $pythonExePath = Join-Path $pythonToolsDir "python.exe"
+                        Write-Host "Found python.exe via choco lib path: $pythonExePath" -ForegroundColor DarkGray
+                        break
+                    }
+                    # Python.org installer often uses these
+                    $pythonVersionDirs = Get-ChildItem -Path "C:\Program Files" -Directory -Filter "Python*" -ErrorAction SilentlyContinue
+                    $pythonVersionDirs += Get-ChildItem -Path $env:LOCALAPPDATA -Directory -Filter "Programs\Python\Python*" -ErrorAction SilentlyContinue
+                     foreach ($pyVerDir in $pythonVersionDirs) {
+                        if (Test-Path (Join-Path $pyVerDir.FullName "python.exe")) {
+                            $pythonExePath = Join-Path $pyVerDir.FullName "python.exe"
+                            Write-Host "Found python.exe via common install path: $pythonExePath" -ForegroundColor DarkGray
+                            break
+                        }
+                    }
+                    if ($pythonExePath) { break }
+                }
+            }
+
+            if ($pythonExePath -and (Test-Path $pythonExePath -PathType Leaf)) {
+                Write-Host "Python executable definitively located at: $pythonExePath" -ForegroundColor DarkGreen
                 $pythonDir = Split-Path $pythonExePath
                 $scriptsDir = Join-Path $pythonDir "Scripts" 
-                if ($env:Path -notlike "*$pythonDir*") { $env:Path = "$pythonDir;$($env:Path)" }
-                if ($env:Path -notlike "*$scriptsDir*") { $env:Path = "$scriptsDir;$($env:Path)" }
-                Write-Host "Updated session PATH segment for Python (may not reflect full system PATH): $($env:Path | Select-Object -First 300)..."
-            }
-            if (Test-IsPythonInstalled) { # Test again after explicit path manipulation
-                $pythonSuccessfullyInstalledOrPresent = $true
-                Write-Host "Python is now detected after installation attempt." -ForegroundColor Green
+                
+                Write-Host "Original session PATH (first 300 chars): $($env:Path | Select-Object -First 300)..." -ForegroundColor DarkGray
+                if ($env:Path -notlike "*$pythonDir*") { 
+                    $env:Path = "$pythonDir;$($env:Path)"
+                    Write-Host "Added '$pythonDir' to session PATH." -ForegroundColor DarkGray
+                }
+                if ($scriptsDir -and (Test-Path $scriptsDir -PathType Container) -and ($env:Path -notlike "*$scriptsDir*")) { 
+                    $env:Path = "$scriptsDir;$($env:Path)"
+                    Write-Host "Added '$scriptsDir' to session PATH." -ForegroundColor DarkGray
+                }
+                Write-Host "Updated session PATH (first 300 chars): $($env:Path | Select-Object -First 300)..." -ForegroundColor DarkGray
             } else {
-                Write-Error "Python installation was attempted but Python is still not detected even after PATH manipulation."
+                Write-Warning "Could not definitively locate python.exe after installation attempts."
+            }
+
+            if (Test-IsPythonInstalled) { 
+                $pythonSuccessfullyInstalledOrPresent = $true
+                Write-Host "Python is now detected after installation and PATH manipulation attempts." -ForegroundColor Green
+            } else {
+                Write-Error "Python installation was attempted but Python is STILL NOT DETECTED by Test-IsPythonInstalled."
+                Write-Warning "A new PowerShell session might be required for Python to be fully available on PATH."
                 $Global:OverallSuccess = $false 
             }
-        } else { # Invoke-SubScript for Python install failed
+        } else { 
+             Write-Error "Python installation sub-script failed."
              $Global:OverallSuccess = $false 
         }
+    } else {
+         Write-Host "Python was already detected." -ForegroundColor Green
     }
 
     if ($pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
+        Write-Host "Checking for Pip again after Python processing..." -ForegroundColor DarkGray
         if (-not (Test-IsPipInstalled)) { 
-            Write-Warning "Python is installed, but Pip was not found by Get-Command. Attempting to install/ensure Pip using 'python -m ensurepip'..."
+            Write-Warning "Python is present, but Pip was NOT found by Test-IsPipInstalled. Attempting to ensurepip..."
             try {
-                $pythonCmd = "python" 
-                $pythonResolved = Get-Command python -ErrorAction SilentlyContinue
-                if ($pythonResolved) {
-                    $pythonCmd = $pythonResolved.Source
-                    Write-Host "Using specific python path for ensurepip: $pythonCmd" -ForegroundColor DarkGray
+                $pythonCmdForEnsurePip = "python" 
+                $pythonResolvedForEnsurePip = Get-Command python -ErrorAction SilentlyContinue
+                if ($pythonResolvedForEnsurePip -and $pythonResolvedForEnsurePip.Source) { 
+                    $pythonCmdForEnsurePip = $pythonResolvedForEnsurePip.Source
+                    Write-Host "Using specific python path for ensurepip: $pythonCmdForEnsurePip" -ForegroundColor DarkGray
                 } else {
-                    Write-Warning "Could not resolve 'python' command with Get-Command. ensurepip might fail if 'python' is not directly on PATH."
+                    Write-Warning "Could not resolve full path for 'python' command. Ensurepip will use 'python' from PATH; might fail if PATH is not set correctly for it."
                 }
 
-                Write-Host "Executing: & '$pythonCmd' -m ensurepip --upgrade" -ForegroundColor DarkGray
-                & $pythonCmd -m ensurepip --upgrade 
+                Write-Host "Executing: & '$pythonCmdForEnsurePip' -m ensurepip --upgrade" -ForegroundColor DarkGray
+                & $pythonCmdForEnsurePip -m ensurepip --upgrade 
                 if ($LASTEXITCODE -ne 0) {
-                    Write-Error "Attempt to run '$pythonCmd -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
+                    Write-Error "Attempt to run '$pythonCmdForEnsurePip -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
                     if ($LASTEXITCODE -eq 9009) {
-                        Write-Error "'python' command was not found (exit 9009) when trying to run ensurepip. This indicates a critical PATH issue for Python."
+                        Write-Error "'python' command was not found (exit 9009) by ensurepip. Critical PATH issue."
                     }
                 } else {
-                    Write-Host "'$pythonCmd -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
+                    Write-Host "'$pythonCmdForEnsurePip -m ensurepip --upgrade' executed. Refreshing PATH and re-checking for Pip." -ForegroundColor Green
                     Refresh-CurrentSessionPath 
-                    $pipExePath = (Get-Command pip -ErrorAction SilentlyContinue).Source
-                    if ($pipExePath) {
-                         $pipDir = Split-Path $pipExePath
-                         if ($pipDir -and ($env:Path -notlike "*$pipDir*")) {
-                            Write-Host "Adding Pip directory '$pipDir' to session PATH."
-                            $env:Path = "$pipDir;$($env:Path)"
+                    $pipExePathAfterEnsure = (Get-Command pip -ErrorAction SilentlyContinue).Source
+                    if ($pipExePathAfterEnsure) {
+                         $pipDirAfterEnsure = Split-Path $pipExePathAfterEnsure
+                         if ($pipDirAfterEnsure -and ($env:Path -notlike "*$pipDirAfterEnsure*")) {
+                            Write-Host "Adding Pip directory '$pipDirAfterEnsure' to session PATH after ensurepip." -ForegroundColor DarkGray
+                            $env:Path = "$pipDirAfterEnsure;$($env:Path)"
                          }
                     }
-                    Test-IsPipInstalled 
                 }
             } catch {
-                 Write-Error "An error occurred while trying to run 'python -m ensurepip --upgrade': $($_.Exception.Message)"
+                 Write-Error "An exception occurred while trying to run 'python -m ensurepip --upgrade': $($_.Exception.Message)"
             }
+            # Final check for Pip
+            if (Test-IsPipInstalled) {
+                Write-Host "Pip is now successfully detected." -ForegroundColor Green
+            } else {
+                Write-Error "Pip is STILL NOT DETECTED even after ensurepip attempt."
+                Write-Warning "Python packages cannot be installed. A new PowerShell session might be required."
+            }
+        } else {
+            Write-Host "Pip was already detected or became available." -ForegroundColor Green
         }
     }
 
