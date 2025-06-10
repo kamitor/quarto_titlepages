@@ -420,328 +420,438 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         Test-IsGitInstalled # Re-test and display status
     }
 
-    # 3. Python & Pip
+    # 3. Python & Pip (Using the "Silent Fix" version from previous discussions)
     Write-Host "`n--- Processing Python & Pip ---" -ForegroundColor Cyan
     $pythonSuccessfullyInstalledOrPresent = $false
     $pythonExeToUse = $null
+    $attemptedStubRemovalThisRun = $false 
 
-    # Initial check for Python and App Execution Alias
-    $initialPythonCheck = Get-Command python -All -ErrorAction SilentlyContinue
-    if ($initialPythonCheck) {
-        Write-Host "Initial 'python' command(s) found on PATH:" -ForegroundColor DarkGray
-        $initialPythonCheck | ForEach-Object { Write-Host "  - $($_.Source)" -ForegroundColor DarkGray }
+    Function _Private_TestAndSetPythonVariables {
+        param(
+            [Parameter(Mandatory=$false)]
+            [switch]$AfterInstallAttempt
+        )
+        $localPythonExePath = $null
+        $localPythonFound = $false
+        $isStubProblem = $false # Local flag for stub detection in this function run
 
-        foreach ($pyInfo in $initialPythonCheck) {
-            if ($pyInfo.Source -and $pyInfo.Source -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                $pythonExeToUse = $pyInfo.Source
-                $pythonSuccessfullyInstalledOrPresent = Test-IsPythonInstalled # Verify this specific one works
-                if ($pythonSuccessfullyInstalledOrPresent) {
-                    Write-Host "Usable Python (non-stub) already detected: $pythonExeToUse" -ForegroundColor Green
-                    break
+        $allPythons = Get-Command python -All -ErrorAction SilentlyContinue
+        
+        if ($allPythons) {
+            if ($AfterInstallAttempt) { Write-Host "Re-evaluating 'python' command(s) post-install/attempt:" -ForegroundColor DarkGray }
+            else { Write-Host "Initial 'python' command(s) found on PATH:" -ForegroundColor DarkGray }
+            $allPythons | ForEach-Object { Write-Host "  - $($_.Source)" -ForegroundColor DarkGray }
+
+            foreach ($pyInfo in $allPythons) {
+                if ($pyInfo.Source -and $pyInfo.Source -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                    $localPythonExePath = $pyInfo.Source
+                    break 
+                }
+            }
+            
+            if ($localPythonExePath) {
+                Write-Host "Selected non-stub Python for evaluation: $localPythonExePath" -ForegroundColor DarkGreen
+                $script:pythonExeToUse = $localPythonExePath
+                if (Test-Path $script:pythonExeToUse -PathType Leaf) {
+                    $output = & $script:pythonExeToUse --version 2>&1 | Out-String
+                    if ($LASTEXITCODE -eq 0 -and $output -match "Python \d+\.\d+") {
+                        Write-Host "Verified Python version from '$($script:pythonExeToUse)': $($output.Trim())" -ForegroundColor Green
+                        $localPythonFound = $true
+                    } else {
+                        Write-Warning "Path $script:pythonExeToUse exists but did not respond as expected to --version. Exit: $LASTEXITCODE, Output: $output"
+                        $script:pythonExeToUse = $null 
+                    }
                 } else {
-                    Write-Warning "Detected python at $($pyInfo.Source) but Test-IsPythonInstalled failed for it."
-                    $pythonExeToUse = $null # Reset if it failed test
+                     Write-Warning "Path $script:pythonExeToUse does not exist or is not a file."
+                     $script:pythonExeToUse = $null
                 }
-            }
-        }
-
-        if (-not $pythonSuccessfullyInstalledOrPresent -and $initialPythonCheck[0].Source -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-            Write-Warning "CRITICAL: The primary 'python.exe' found is the Windows Store stub: $($initialPythonCheck[0].Source)"
-            Write-Warning "This will prevent proper Python operation. Please disable 'App execution aliases' for 'python.exe' and 'python3.exe' in Windows Settings."
-            Write-Warning "To do this: Search for 'Manage app execution aliases' in Windows Start, then turn them OFF."
-            Write-Warning "After disabling them, CLOSE this PowerShell window and RE-RUN this script in a new Administrator PowerShell session."
-            $Global:OverallSuccess = $false
-        } elseif (-not $pythonSuccessfullyInstalledOrPresent) {
-             Write-Host "No usable Python initially detected by Test-IsPythonInstalled."
-        }
-    } else {
-        Write-Host "No 'python' command initially found on PATH."
-    }
-
-    if (-not $pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
-        Write-Host "Python not found or problematic. Attempting installation via sub-script..."
-        if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
-            Write-Host "Python installation sub-script completed. Refreshing PATH and re-evaluating Python..." -ForegroundColor DarkGray
-            Refresh-CurrentSessionPath 
-            
-            $pythonExePath = $null
-            $allPythonPathsAfterInstall = Get-Command python -All -ErrorAction SilentlyContinue
-            
-            if ($allPythonPathsAfterInstall) {
-                Write-Host "Found the following 'python' command(s) after install:" -ForegroundColor DarkGray
-                $allPythonPathsAfterInstall | ForEach-Object { Write-Host "  - $($_.Source)" -ForegroundColor DarkGray }
-                foreach ($pyPathInfo in $allPythonPathsAfterInstall) {
-                    $sourcePath = $pyPathInfo.Source
-                    if ($sourcePath -and $sourcePath -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                        $pythonExePath = $sourcePath
-                        Write-Host "Selected non-stub Python after install: $pythonExePath" -ForegroundColor DarkGreen
-                        break 
+            } elseif ($allPythons[0].Source -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                Write-Warning "Primary 'python.exe' found is the Windows Store stub: $($allPythons[0].Source)"
+                $isStubProblem = $true # Mark that stub is currently the problem
+                if (-not $script:attemptedStubRemovalThisRun) {
+                    Write-Host "Attempting to silently remove Python App Execution Alias stubs from registry (once per run)..." -ForegroundColor Yellow
+                    $script:attemptedStubRemovalThisRun = $true
+                    $stubRegistryPaths = @(
+                        "HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths\python.exe",
+                        "HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths\python3.exe"
+                    )
+                    $anyRemovalAttempted = $false
+                    foreach ($stubRegPath in $stubRegistryPaths) {
+                        if (Test-Path $stubRegPath) {
+                            try {
+                                Remove-Item -Path $stubRegPath -Force -ErrorAction Stop
+                                Write-Host "Successfully removed registry entry: $stubRegPath" -ForegroundColor Green
+                                $anyRemovalAttempted = $true
+                            } catch {
+                                Write-Warning "Failed to remove registry entry $stubRegPath : $($_.Exception.Message)"
+                            }
+                        } else {
+                             Write-Host "Registry entry for stub not found (already addressed or never existed): $stubRegPath" -ForegroundColor DarkGray
+                        }
                     }
-                }
-                if (-not $pythonExePath -and $allPythonPathsAfterInstall[0].Source -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                    Write-Warning "CRITICAL: Windows Store stub for Python is still the primary one found after installation."
-                    Write-Warning "  $($allPythonPathsAfterInstall[0].Source)"
-                    Write-Warning "Please disable app execution aliases (see previous messages) and re-run."
-                    $Global:OverallSuccess = $false
-                    $pythonExePath = $allPythonPathsAfterInstall[0].Source # For diagnostics, but it's bad
-                } elseif (-not $pythonExePath -and $allPythonPathsAfterInstall.Count -gt 0) {
-                    $pythonExePath = $allPythonPathsAfterInstall[0].Source # Fallback to first if no non-stub found
-                }
-            }
-
-            if (-not $pythonExePath -and $Global:OverallSuccess) {
-                Write-Warning "Get-Command python still did not find a usable python.exe. Probing known locations..."
-                $probePaths = @(
-                    (Join-Path $env:ProgramData "chocolatey\lib\python\tools\python.exe"),
-                    (Join-Path $env:ProgramData "chocolatey\lib\python3\tools\python.exe")
-                )
-                $versions = "312", "311", "310", "39", "38", "37" # Common versions
-                foreach ($ver in $versions) {
-                    $probePaths += "C:\Python$ver\python.exe"
-                    $probePaths += (Join-Path $env:LOCALAPPDATA "Programs\Python\Python$ver\python.exe")
-                }
-                foreach ($pathCandidate in $probePaths | Select-Object -Unique) {
-                    if (Test-Path $pathCandidate -PathType Leaf) {
-                        $pythonExePath = $pathCandidate
-                        Write-Host "Found python.exe via direct probe: $pythonExePath" -ForegroundColor DarkGray
-                        break
+                    if ($anyRemovalAttempted) {
+                        Write-Host "Registry modification attempted for stubs. Refreshing PATH and re-evaluating Python detection." -ForegroundColor DarkGray
+                        Refresh-CurrentSessionPath
+                        Start-Sleep -Seconds 1 
+                        return _Private_TestAndSetPythonVariables -AfterInstallAttempt:$true 
+                    } else {
+                         Write-Warning "No stubs found in registry to remove, yet a stub path is still primary. This is unusual. Manual intervention for Python stub is likely required."
+                         $script:pythonExeToUse = $allPythons[0].Source 
+                         $Global:OverallSuccess = $false # Mark as failure due to persistent stub
                     }
+                } else { 
+                     Write-Warning "Windows Store stub for Python persists even after removal attempt. Manual intervention (disabling 'App execution aliases' in Windows Settings) AND a SHELL RESTART are strongly recommended."
+                     $script:pythonExeToUse = $allPythons[0].Source 
+                     $Global:OverallSuccess = $false 
                 }
-            }
-
-            if ($pythonExePath -and (Test-Path $pythonExePath -PathType Leaf) -and ($pythonExePath -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe")) {
-                Write-Host "Python executable for PATH setup: $pythonExePath" -ForegroundColor DarkGreen
-                $pythonDir = Split-Path $pythonExePath
-                $scriptsDir = Join-Path $pythonDir "Scripts" 
-                
-                if ($pythonDir -and ($env:Path -notlike "*$pythonDir*")) { 
-                    $env:Path = "$pythonDir;$($env:Path)"
-                    Write-Host "Added '$pythonDir' to session PATH." -ForegroundColor DarkGray
-                }
-                if ($scriptsDir -and (Test-Path $scriptsDir -PathType Container) -and ($env:Path -notlike "*$scriptsDir*")) { 
-                    $env:Path = "$scriptsDir;$($env:Path)"
-                    Write-Host "Added '$scriptsDir' to session PATH." -ForegroundColor DarkGray
-                }
-                Write-Host "Updated session PATH (first 300 chars): $($env:Path | Select-Object -First 300)..." -ForegroundColor DarkGray
-                $pythonExeToUse = $pythonExePath
-            } elseif ($pythonExePath -and $pythonExePath -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                Write-Warning "Skipping PATH modification as only the Windows Store Python stub was found after install: $pythonExePath"
-            } else {
-                 Write-Warning "Could not definitively locate a usable (non-stub) python.exe for PATH modification after install."
-            }
-            
-            if (Test-IsPythonInstalled) { 
-                $pythonSuccessfullyInstalledOrPresent = $true # This test uses Get-Command, so it depends on PATH
-                Write-Host "Python is now detected by Test-IsPythonInstalled after installation attempts." -ForegroundColor Green
-                if (-not $pythonExeToUse) { # If Test-IsPythonInstalled passed but we didn't set pythonExeToUse from a non-stub path
-                    $tempPyPath = (Get-Command python -ErrorAction SilentlyContinue).Source
-                    if ($tempPyPath -and $tempPyPath -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                        $pythonExeToUse = $tempPyPath
-                    } elseif ($tempPyPath) {
-                         Write-Warning "Test-IsPythonInstalled passed, but found Python is the stub: $tempPyPath. Manual intervention required."
-                         $Global:OverallSuccess = $false
-                    }
-                }
-            } else {
-                Write-Error "Python is STILL NOT DETECTED by Test-IsPythonInstalled after install and PATH attempts."
-                if ($Global:OverallSuccess) { $Global:OverallSuccess = $false }
             }
         } else { 
-             Write-Error "Python installation sub-script failed."
-             $Global:OverallSuccess = $false 
+            if ($AfterInstallAttempt) { Write-Warning "Get-Command python still found no python.exe after install/modification attempt."}
+            else { Write-Host "No 'python' command initially found on PATH." }
         }
+        
+        if (-not $localPythonFound -and -not $isStubProblem) { # If no non-stub python found AND it wasn't identified as a stub problem (e.g. just nothing found)
+            $testResult = Test-IsPythonInstalled # General check
+            if ($testResult) {
+                $foundPythonPath = (Get-Command python -ErrorAction SilentlyContinue).Source
+                if ($foundPythonPath -and $foundPythonPath -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                    $script:pythonExeToUse = $foundPythonPath
+                    $localPythonFound = $true
+                } elseif ($foundPythonPath) { # Test-IsPythonInstalled found the stub
+                    Write-Warning "Test-IsPythonInstalled identified the Windows Store stub: $foundPythonPath. This is problematic."
+                    $Global:OverallSuccess = $false # Mark as failure
+                }
+            }
+        }
+        $script:pythonSuccessfullyInstalledOrPresent = $localPythonFound
+        return $localPythonFound
     }
 
-    if ($pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
-        Write-Host "Checking for Pip..." -ForegroundColor DarkGray
+    _Private_TestAndSetPythonVariables | Out-Null
+
+    if (-not $pythonSuccessfullyInstalledOrPresent) { # Only attempt install if no usable Python was found and stub issue wasn't a hard stop
+        if ($Global:OverallSuccess) { # Proceed with install attempt only if stub issue didn't already halt success
+            Write-Host "Python not usable or not found by initial checks. Attempting installation..."
+            if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
+                Write-Host "Python installation sub-script completed. Refreshing PATH and re-evaluating Python..." -ForegroundColor DarkGray
+                Refresh-CurrentSessionPath 
+                Start-Sleep -Seconds 1
+                
+                _Private_TestAndSetPythonVariables -AfterInstallAttempt:$true | Out-Null
+
+                if ($pythonExeToUse -and (Test-Path $pythonExeToUse -PathType Leaf) -and ($pythonExeToUse -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe")) {
+                    Write-Host "Python executable for PATH setup post-install: $pythonExeToUse" -ForegroundColor DarkGreen
+                    $pythonDir = Split-Path $pythonExeToUse
+                    $scriptsDir = Join-Path $pythonDir "Scripts" 
+                    
+                    if ($pythonDir -and ($env:Path -notlike "*$(Split-Path $pythonDir -Leaf)*")) { 
+                        $env:Path = "$pythonDir;$($env:Path)"
+                        Write-Host "Added '$pythonDir' to session PATH." -ForegroundColor DarkGray
+                    }
+                    if ($scriptsDir -and (Test-Path $scriptsDir -PathType Container) -and ($env:Path -notlike "*$(Split-Path $scriptsDir -Leaf)*")) { 
+                        $env:Path = "$scriptsDir;$($env:Path)"
+                        Write-Host "Added '$scriptsDir' to session PATH." -ForegroundColor DarkGray
+                    }
+                    Write-Host "Refreshed session PATH after Python install (first 300 chars): $($env:Path | Select-Object -First 300)..." -ForegroundColor DarkGray
+                } elseif ($pythonExeToUse -and $pythonExeToUse -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                    Write-Warning "Only the Windows Store Python stub was found after install: $pythonExeToUse. PATH modification skipped."
+                } else {
+                     Write-Warning "Could not definitively locate a usable (non-stub) python.exe for PATH modification after install."
+                }
+                
+                if (Test-IsPythonInstalled) { 
+                    $pythonSuccessfullyInstalledOrPresent = $true 
+                    Write-Host "Python is now detected by Test-IsPythonInstalled after installation attempts." -ForegroundColor Green
+                    $currentFoundPythonForUse = (Get-Command Python -ErrorAction SilentlyContinue).Source
+                    if ($currentFoundPythonForUse -and $currentFoundPythonForUse -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                        $pythonExeToUse = $currentFoundPythonForUse # Ensure $pythonExeToUse is the one found by Test-IsPythonInstalled
+                    } elseif ($currentFoundPythonForUse) {
+                        Write-Warning "Test-IsPythonInstalled passed, but Get-Command still points to the stub: $currentFoundPythonForUse. Python operations will likely fail."
+                        $Global:OverallSuccess = $false 
+                    }
+                } else {
+                    Write-Error "Python is STILL NOT DETECTED by Test-IsPythonInstalled after install and PATH attempts."
+                    $Global:OverallSuccess = $false 
+                }
+            } else { 
+                 Write-Error "Python installation sub-script failed."
+                 $Global:OverallSuccess = $false 
+            }
+        } else {
+            if (-not $pythonSuccessfullyInstalledOrPresent) { # If initial checks failed and we didn't try to install (e.g. stub caused OverallSuccess to be false)
+                 Write-Warning "Python setup was not fully successful due to earlier critical issues (e.g., persistent Windows Store stub)."
+            }
+        }
+    }
+    
+    # Pip processing relies on $pythonSuccessfullyInstalledOrPresent and $pythonExeToUse
+    if ($pythonSuccessfullyInstalledOrPresent) {
+        Write-Host "Python believed to be present. Checking for Pip..." -ForegroundColor DarkGray
         if (-not (Test-IsPipInstalled)) { 
             Write-Warning "Pip was NOT found by Test-IsPipInstalled. Attempting to ensurepip..."
             try {
                 $pythonCmdForEnsurePip = $null
-                if ($pythonExeToUse -and (Test-Path $pythonExeToUse -PathType Leaf)) {
+                if ($pythonExeToUse -and (Test-Path $pythonExeToUse -PathType Leaf) -and ($pythonExeToUse -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe")) {
                     $pythonCmdForEnsurePip = $pythonExeToUse
-                } else {
-                    $pythonResolvedForEnsurePip = Get-Command python -ErrorAction SilentlyContinue
-                    if ($pythonResolvedForEnsurePip -and $pythonResolvedForEnsurePip.Source -and ($pythonResolvedForEnsurePip.Source -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe")) {
-                        $pythonCmdForEnsurePip = $pythonResolvedForEnsurePip.Source
-                    } elseif ($pythonResolvedForEnsurePip) {
-                         Write-Warning "Python found for ensurepip is the Windows Store stub: $($pythonResolvedForEnsurePip.Source). Ensurepip will fail."
-                         $Global:OverallSuccess = $false
+                } else { 
+                    Write-Warning "No definitive non-stub Python identified from previous steps for ensurepip. Re-checking PATH for 'python' to use for ensurepip."
+                    $firstPythonOnPath = (Get-Command python -ErrorAction SilentlyContinue).Source
+                    if ($firstPythonOnPath -and $firstPythonOnPath -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                        $pythonCmdForEnsurePip = $firstPythonOnPath
+                    } elseif ($firstPythonOnPath) {
+                        Write-Error "Cannot run ensurepip: The only 'python' found on PATH is the Windows Store stub: $firstPythonOnPath"
+                        $Global:OverallSuccess = $false 
+                    } else {
+                        Write-Error "Cannot run ensurepip: No 'python' command found on PATH at all."
+                        $Global:OverallSuccess = $false 
                     }
                 }
 
-                if ($pythonCmdForEnsurePip -and $Global:OverallSuccess) {
+                if ($pythonCmdForEnsurePip -and $Global:OverallSuccess) { # Check OverallSuccess again in case stub detection set it to false
                     Write-Host "Using Python for ensurepip: $pythonCmdForEnsurePip" -ForegroundColor DarkGray
-                    Write-Host "Executing: & '$pythonCmdForEnsurePip' -m ensurepip --upgrade" -ForegroundColor DarkGray
+                    Write-Host "Executing: & '$pythonCmdForEnsurePip' -m ensurepip --upgrade" 
                     & $pythonCmdForEnsurePip -m ensurepip --upgrade 
                     if ($LASTEXITCODE -ne 0) {
                         Write-Error "Attempt to run '$pythonCmdForEnsurePip -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
                         if ($LASTEXITCODE -eq 9009) { Write-Error "Ensurepip: Python command not found (exit 9009)." }
+                         $Global:OverallSuccess = $false # ensurepip failure is a problem for python packages
                     } else {
                         Write-Host "'$pythonCmdForEnsurePip -m ensurepip --upgrade' executed. Refreshing PATH..." -ForegroundColor Green
                         Refresh-CurrentSessionPath 
+                        Start-Sleep -Seconds 1
                         $pipExePathAfterEnsure = (Get-Command pip -ErrorAction SilentlyContinue).Source
                         if ($pipExePathAfterEnsure) {
                              $pipDirAfterEnsure = Split-Path $pipExePathAfterEnsure
-                             if ($pipDirAfterEnsure -and (Test-Path $pipDirAfterEnsure -PathType Container) -and ($env:Path -notlike "*$pipDirAfterEnsure*")) {
+                             if ($pipDirAfterEnsure -and (Test-Path $pipDirAfterEnsure -PathType Container) -and ($env:Path -notlike "*$(Split-Path $pipDirAfterEnsure -Leaf)*")) {
                                 Write-Host "Adding Pip directory '$pipDirAfterEnsure' to session PATH." -ForegroundColor DarkGray
                                 $env:Path = "$pipDirAfterEnsure;$($env:Path)"
                              }
                         }
                     }
-                } else {
-                    Write-Error "Cannot attempt ensurepip: No usable Python executable identified or Windows Store stub issue detected."
                 }
             } catch {
                  Write-Error "An exception occurred while trying to run 'python -m ensurepip --upgrade': $($_.Exception.Message)"
+                 $Global:OverallSuccess = $false
             }
             
             if (Test-IsPipInstalled) {
                 Write-Host "Pip is now successfully detected." -ForegroundColor Green
             } else {
-                Write-Error "Pip is STILL NOT DETECTED even after ensurepip attempt."
-                Write-Warning "Python packages cannot be installed. If Windows Store stub was warned, address it. Otherwise, a new PowerShell session might be required."
+                 if ($Global:OverallSuccess){ # Only error if not already failed due to stub etc.
+                    Write-Error "Pip is STILL NOT DETECTED even after ensurepip attempt."
+                    Write-Warning "Python packages cannot be installed by this script run."
+                    # We don't set Global:OverallSuccess to false here because Python itself might be fine, just pip is missing for now.
+                    # The package installation step will note this.
+                 }
             }
         } else {
-            Write-Host "Pip was already detected or became available without ensurepip." -ForegroundColor Green
+            Write-Host "Pip was already detected." -ForegroundColor Green
         }
+    } else {
+        Write-Warning "Skipping Pip detection and ensurepip because Python was not successfully installed or configured."
     }
 
     # 4. R
-    if ($Global:OverallSuccess -and -not (Test-IsRInstalled)) {
-        if (Invoke-SubScript -SubScriptName "Install-R.ps1" -StepDescription "R Installation") {
-            Refresh-CurrentSessionPath
-            # Aggressive PATH update for R (experimental)
-            $rInstallDirs = @(
-                "$($env:ProgramFiles)\R",
-                "$($env:ProgramW6432)\R" # For 32-bit PS on 64-bit OS finding 64-bit R, or vice versa
-            )
-            foreach ($rBaseDir in $rInstallDirs) {
-                if (Test-Path $rBaseDir) {
-                    $rVersionDirs = Get-ChildItem -Path $rBaseDir -Directory -ErrorAction SilentlyContinue | Where-Object {$_.Name -match "^R-\d+\.\d+\.\d+$"}
-                    foreach ($rVersionDir in $rVersionDirs) {
-                        $rBinPath = Join-Path $rVersionDir.FullName "bin\x64" # Assuming x64 common
-                        if (Test-Path $rBinPath -and ($env:Path -notlike "*$rBinPath*")) {
-                            Write-Host "Adding R bin path to session PATH: $rBinPath" -ForegroundColor DarkGray
-                            $env:Path = "$rBinPath;$($env:Path)"
-                        }
-                        $rBinPathi386 = Join-Path $rVersionDir.FullName "bin\i386"
-                         if (Test-Path $rBinPathi386 -and ($env:Path -notlike "*$rBinPathi386*")) {
-                            Write-Host "Adding R i386 bin path to session PATH: $rBinPathi386" -ForegroundColor DarkGray
-                            $env:Path = "$rBinPathi386;$($env:Path)"
+    Write-Host "`n--- Processing R ---" -ForegroundColor Cyan
+    if (-not (Test-IsRInstalled)) {
+        if (Test-IsChocolateyInstalled) { # Only try if Choco is there
+            if (Invoke-SubScript -SubScriptName "Install-R.ps1" -StepDescription "R Installation") {
+                Refresh-CurrentSessionPath
+                $rInstallDirs = @(
+                    "$($env:ProgramFiles)\R",
+                    "$($env:ProgramW6432)\R" 
+                )
+                foreach ($rBaseDir in $rInstallDirs | Select-Object -Unique) { 
+                    if ($rBaseDir -and (Test-Path $rBaseDir -PathType Container)) { 
+                        $rVersionDirs = Get-ChildItem -Path $rBaseDir -Directory -ErrorAction SilentlyContinue | Where-Object {$_.Name -match "^R-\d+\.\d+\.\d+$"}
+                        foreach ($rVersionDir in $rVersionDirs) {
+                            $rBinPathX64 = Join-Path $rVersionDir.FullName "bin\x64" 
+                            if (Test-Path $rBinPathX64 -PathType Container -and ($env:Path -notlike "*$(Split-Path $rBinPathX64 -Leaf)*")) { 
+                                Write-Host "Adding R bin x64 path to session PATH: $rBinPathX64" -ForegroundColor DarkGray
+                                $env:Path = "$rBinPathX64;$($env:Path)"
+                            }
+                            $rBinPathi386 = Join-Path $rVersionDir.FullName "bin\i386"
+                             if (Test-Path $rBinPathi386 -PathType Container -and ($env:Path -notlike "*$(Split-Path $rBinPathi386 -Leaf)*")) { 
+                                Write-Host "Adding R i386 bin path to session PATH: $rBinPathi386" -ForegroundColor DarkGray
+                                $env:Path = "$rBinPathi386;$($env:Path)"
+                            }
                         }
                     }
                 }
-            }
+            } # No else here, just proceed to Test-IsRInstalled
+        } else {
+            Write-Warning "Skipping R installation: Chocolatey is not available."
+            $Global:OverallSuccess = $false
         }
-        Test-IsRInstalled
+        if (-not (Test-IsRInstalled)) {
+             Write-Warning "R (R.exe or Rscript.exe) not detected after installation attempt. R packages cannot be installed by this script run."
+             # Don't set Global:OverallSuccess to false just for R, let R packages step fail if it's a problem
+        }
+    } else {
+        Write-Host "R and Rscript already detected." -ForegroundColor Green
     }
 
+
     # 5. Quarto CLI
-    if ($Global:OverallSuccess -and -not (Test-IsQuartoCliInstalled)) {
-        if (Invoke-SubScript -SubScriptName "Install-QuartoCli.ps1" -StepDescription "Quarto CLI Installation") { # Sub-script should use 'quarto', not 'quarto-cli'
+    Write-Host "`n--- Processing Quarto CLI ---" -ForegroundColor Cyan
+    if (-not (Test-IsQuartoCliInstalled)) {
+        if (Test-IsChocolateyInstalled) {
+            Invoke-SubScript -SubScriptName "Install-QuartoCli.ps1" -StepDescription "Quarto CLI Installation" 
             Refresh-CurrentSessionPath
+            if (-not (Test-IsQuartoCliInstalled)) {
+                Write-Error "Quarto CLI not detected after installation attempt."
+                $Global:OverallSuccess = $false
+            }
+        } else {
+             Write-Warning "Skipping Quarto CLI installation: Chocolatey is not available."
+             $Global:OverallSuccess = $false
         }
-        Test-IsQuartoCliInstalled
+    } else {
+        Write-Host "Quarto CLI already detected." -ForegroundColor Green
     }
 
     # 6. Visual Studio Code
-    if ($Global:OverallSuccess -and -not (Test-IsVSCodeInstalled)) {
-        Invoke-SubScript -SubScriptName "Install-VSCode.ps1" -StepDescription "Visual Studio Code Installation"
-        Test-IsVSCodeInstalled 
+    Write-Host "`n--- Processing Visual Studio Code ---" -ForegroundColor Cyan
+    if (-not (Test-IsVSCodeInstalled)) {
+        if (Test-IsChocolateyInstalled) {
+            Invoke-SubScript -SubScriptName "Install-VSCode.ps1" -StepDescription "Visual Studio Code Installation"
+            if (-not (Test-IsVSCodeInstalled)) {
+                 Write-Warning "VSCode not detected after installation attempt. This might be a PATH refresh delay for 'code.exe' or choco list timing."
+            }
+        } else {
+            Write-Warning "Skipping Visual Studio Code installation: Chocolatey is not available."
+            $Global:OverallSuccess = $false # VSCode is often a key dev tool
+        }
+    } else {
+        Write-Host "Visual Studio Code already detected." -ForegroundColor Green
     }
 
-    # 7. Python Packages (uses requirements.txt via Install-PythonPackages.ps1)
-    if ($Global:OverallSuccess -and $pythonSuccessfullyInstalledOrPresent -and (Test-IsPipInstalled)) {
+    # 7. Python Packages 
+    Write-Host "`n--- Processing Python Packages ---" -ForegroundColor Cyan
+    if ($pythonSuccessfullyInstalledOrPresent -and (Test-IsPipInstalled)) {
         Invoke-SubScript -SubScriptName "Install-PythonPackages.ps1" -StepDescription "Python Packages Installation from requirements.txt"
-    } elseif ($Global:OverallSuccess) { 
+    } else { 
         Write-Warning "Skipping Python packages installation."
-        if (-not $pythonSuccessfullyInstalledOrPresent) { Write-Warning "Reason: Python is not available." }
-        elseif (-not (Test-IsPipInstalled)) { Write-Warning "Reason: Pip is not available or could not be installed/ensured." }
+        if (-not $pythonSuccessfullyInstalledOrPresent) { Write-Warning "Reason: Python is not available or not correctly configured." }
+        elseif (-not (Test-IsPipInstalled)) { Write-Warning "Reason: Pip is not available." }
     }
 
     # 8. R Packages
-    if ($Global:OverallSuccess -and (Test-IsRInstalled)) {
+    Write-Host "`n--- Processing R Packages ---" -ForegroundColor Cyan
+    if (Test-IsRInstalled) { # R and Rscript must be findable
         Invoke-SubScript -SubScriptName "Install-RPackages.ps1" -StepDescription "R Packages Installation"
-    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping R packages: R/Rscript is not available." }
+    } else { 
+        Write-Warning "Skipping R packages: R/Rscript is not available on PATH for this session."
+    }
 
-    # 9. TinyTeX (requires Quarto)
-    if ($Global:OverallSuccess -and (Test-IsQuartoCliInstalled)) {
+    # 9. TinyTeX 
+    Write-Host "`n--- Processing TinyTeX (for Quarto PDF output) ---" -ForegroundColor Cyan
+    if (Test-IsQuartoCliInstalled) {
         if (-not (Test-IsTinyTeXInstalled)) {
             Invoke-SubScript -SubScriptName "Install-TinyTeX.ps1" -StepDescription "TinyTeX Installation (for Quarto)"
-            Test-IsTinyTeXInstalled
+            if (-not (Test-IsTinyTeXInstalled)){
+                 Write-Warning "TinyTeX not detected after installation attempt. PDF rendering via LaTeX might fail."
+            }
+        } else {
+            Write-Host "TinyTeX already detected." -ForegroundColor Green
         }
-    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping TinyTeX: Quarto CLI is not available." }
+    } else { 
+        Write-Warning "Skipping TinyTeX: Quarto CLI is not available." 
+    }
 
-    # 10. 'nmfs-opensci/quarto_titlepages' Extension (requires Quarto)
-    if ($Global:OverallSuccess -and (Test-IsQuartoCliInstalled)) {
+    # 10. 'nmfs-opensci/quarto_titlepages' Extension
+    Write-Host "`n--- Processing nmfs-opensci/quarto_titlepages Extension ---" -ForegroundColor Cyan
+    if (Test-IsQuartoCliInstalled) {
         if (-not (Test-IsNmfsExtensionInstalled -LocationOfExtensionParentDir $Global:nmfsExtensionInstallLocation)) {
             Write-Host "The 'nmfs-opensci/quarto_titlepages' extension will be installed in an '_extensions' folder within: $($Global:nmfsExtensionInstallLocation)"
             Invoke-SubScript -SubScriptName "Install-NmfsQuartoExtension.ps1" -StepDescription "'nmfs-opensci/quarto_titlepages' Quarto Extension Installation"
-            Test-IsNmfsExtensionInstalled -LocationOfExtensionParentDir $Global:nmfsExtensionInstallLocation
+            if (-not (Test-IsNmfsExtensionInstalled -LocationOfExtensionParentDir $Global:nmfsExtensionInstallLocation)) {
+                Write-Warning "nmfs-opensci/quarto_titlepages extension not detected after installation attempt."
+            }
+        } else {
+            Write-Host "nmfs-opensci/quarto_titlepages extension already detected where script was run." -ForegroundColor Green
         }
-    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping 'nmfs-opensci/quarto_titlepages' extension: Quarto CLI is not available." }
+    } else { 
+        Write-Warning "Skipping 'nmfs-opensci/quarto_titlepages' extension: Quarto CLI is not available." 
+    }
 
-    # 11. Clone 'kamitor/quarto_titlepages' Repository (requires Git)
-    if ($Global:OverallSuccess -and (Test-IsGitInstalled)) {
+    # 11. Clone 'kamitor/quarto_titlepages' Repository 
+    Write-Host "`n--- Processing kamitor/quarto_titlepages Repository ---" -ForegroundColor Cyan
+    if (Test-IsGitInstalled) {
         if (-not (Test-IsKamitorRepoCloned)) {
             Invoke-SubScript -SubScriptName "Clone-KamitorRepo.ps1" -StepDescription "Cloning 'kamitor/quarto_titlepages' Repository"
-            Test-IsKamitorRepoCloned
+            if (-not (Test-IsKamitorRepoCloned)) {
+                 Write-Error "Failed to clone or detect 'kamitor/quarto_titlepages' repository."
+                 $Global:OverallSuccess = $false # This repo is a primary goal
+            }
+        } else {
+             Write-Host "'kamitor/quarto_titlepages' repository already cloned to default location." -ForegroundColor Green
         }
-    } elseif ($Global:OverallSuccess) { Write-Warning "Skipping repository cloning: Git is not available." }
-
+    } else { 
+        Write-Warning "Skipping repository cloning: Git is not available."
+        $Global:OverallSuccess = $false # Git is needed for this
+    }
+    
+# This closes the main 'if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled))' block from Corrected Part 3.
+# The font and outlook checks will now run even if some choco installs failed,
+# as long as the very initial Chocolatey setup itself was successful.
 } elseif (-not (Test-IsChocolateyInstalled)) { 
-    Write-Error "Cannot proceed with tool installations because Chocolatey is not available."
-    # $Global:OverallSuccess should already be false from choco check
+    Write-Error "Cannot proceed with most tool installations because Chocolatey is not available."
+    $Global:OverallSuccess = $false
 }
 
+
 # 12. Install Custom Fonts
-if ($Global:OverallSuccess) { 
-    $fontDir = Join-Path -Path $Global:MainInstallerBaseDir -ChildPath "assets\fonts" # Ensure $Global:MainInstallerBaseDir is set
-    if (Test-Path $fontDir -PathType Container) {
-        if ((Get-ChildItem -Path $fontDir -Filter "*.otf" -ErrorAction SilentlyContinue) -or (Get-ChildItem -Path $fontDir -Filter "*.ttf" -ErrorAction SilentlyContinue)) {
-            Invoke-SubScript -SubScriptName "Install-CustomFonts.ps1" -StepDescription "Custom Font Installation"
-        } else {
-            Write-Host "No .otf or .ttf font files found in '$fontDir'. Skipping custom font installation." -ForegroundColor DarkGray
-        }
+Write-Host "`n--- Processing Custom Fonts ---" -ForegroundColor Cyan
+$fontDir = Join-Path -Path $Global:MainInstallerBaseDir -ChildPath "assets\fonts" 
+if (Test-Path $fontDir -PathType Container) {
+    if ((Get-ChildItem -Path $fontDir -Filter "*.otf" -ErrorAction SilentlyContinue) -or (Get-ChildItem -Path $fontDir -Filter "*.ttf" -ErrorAction SilentlyContinue)) {
+        Invoke-SubScript -SubScriptName "Install-CustomFonts.ps1" -StepDescription "Custom Font Installation"
     } else {
-        Write-Warning "Font directory '$fontDir' not found. Skipping custom font installation."
-        Write-Warning "Create the directory (e.g., 'assets\fonts' next to this script) and place font files there if needed."
+        Write-Host "No .otf or .ttf font files found in '$fontDir'. Skipping custom font installation." -ForegroundColor DarkGray
     }
+} else {
+    Write-Warning "Font directory '$fontDir' not found. Skipping custom font installation."
+    Write-Warning "Create the directory (e.g., 'assets\fonts' next to this script) and place font files there if needed."
 }
 
 # 13. Check for Microsoft Outlook
-if ($Global:OverallSuccess) { 
-    Write-Host "`n--- Checking for Microsoft Outlook ---" -ForegroundColor Cyan
-    if (-not (Test-IsOutlookInstalled)) {
-        Write-Warning "Microsoft Outlook was not detected. If your project requires Outlook interaction, please ensure it is installed and configured manually."
-    } else {
-        Write-Host "Microsoft Outlook appears to be installed. Please ensure it is configured with a mail profile if required by the project." -ForegroundColor Green
-    }
+Write-Host "`n--- Checking for Microsoft Outlook ---" -ForegroundColor Cyan
+if (-not (Test-IsOutlookInstalled)) {
+    Write-Warning "Microsoft Outlook was not detected. If the project requires Outlook interaction, please ensure it is installed and configured manually."
+} else {
+    Write-Host "Microsoft Outlook appears to be installed. Please ensure it is configured with a mail profile if required by the project." -ForegroundColor Green
 }
 
-# --- Final Summary ---
 Write-Host "`n--- Installation Orchestration Attempted ---" -ForegroundColor Yellow
 if ($Global:OverallSuccess) {
-    Write-Host "All checked steps appear to have completed successfully or were already satisfied." -ForegroundColor Green
+    Write-Host "All critical prerequisite steps appear to have completed successfully or were already satisfied." -ForegroundColor Green
+    Write-Host "Please review any warnings above for non-critical items or PATH issues that might require a shell restart." -ForegroundColor Yellow
 } else {
-    Write-Warning "One or more steps may have failed or were skipped due to prior failures. Please review the output above."
+    Write-Error "One or more CRITICAL steps failed or critical prerequisites (like Python stub or Choco) were not resolved."
+    Write-Warning "Please review the entire output above carefully. Some tools may have installed, but the environment is not fully set up."
+    Write-Warning "Addressing CRITICAL errors (like Python stubs or failed core installs) and re-running, or restarting your shell, might be necessary."
 }
 
-Write-Host "`nIMPORTANT NOTES:" -ForegroundColor Yellow
-Write-Host " - If any 'command not found' errors occurred for newly installed tools, despite installation attempts,"
-Write-Host "   it might be due to PATH environment variable updates not fully propagating in this single session."
-Write-Host "   In such cases, CLOSE THIS POWERSHELL WINDOW AND OPEN A NEW ADMINISTRATOR POWERSHELL WINDOW."
-Write-Host "   The commands should then be available."
+Write-Host "`nIMPORTANT NOTES (Review Carefully):" -ForegroundColor Yellow
+Write-Host " - PATH Environment Variable: Newly installed command-line tools (Python, Pip, R, Rscript, Git, Quarto)"
+Write-Host "   might not be immediately available in THIS PowerShell session, even after refresh attempts."
+Write-Host "   If you see 'command not found' errors when trying to use them after this script,"
+Write-Host "   CLOSE THIS POWERSHELL WINDOW AND OPEN A NEW ADMINISTRATOR POWERSHELL WINDOW."
+Write-Host "   This usually resolves PATH-related issues for new installations."
+Write-Host " - Python App Execution Aliases (Stubs): If warnings about 'Windows Store stub' for Python appeared,"
+Write-Host "   it is CRITICAL to manually disable these in Windows Settings ('Manage app execution aliases')"
+Write-Host "   and then re-run this script in a new Admin PowerShell session for Python-dependent tools to work."
+Write-Host " - Chocolatey Pending Reboot: If Chocolatey mentioned a pending reboot, some installations might not be fully"
+Write-Host "   stable until the system is restarted, though the script attempts to continue."
 Write-Host " - The 'nmfs-opensci/quarto_titlepages' extension was attempted to be installed into an '_extensions' folder"
 Write-Host "   within the directory where this script was run: $($Global:nmfsExtensionInstallLocation)\_extensions"
-Write-Host " - The main project files from '$ScriptScopeCloneRepoName' should be in: $($Global:FullClonePath) (if cloning was successful)."
-Write-Host "   Navigate there to use the project, e.g., 'cd ""$($Global:FullClonePath)""' and then 'quarto render yourfile.qmd'."
+Write-Host " - The main project files from '$ScriptScopeCloneRepoName' should be in: $($Global:FullClonePath) (if cloning was attempted)."
+Write-Host "   Navigate there to use the project, e.g., 'cd ""$($Global:FullClonePath)""'."
 Write-Host ""
-Write-Host "Post-installation actions:"
-Write-Host " 1. Custom font installation was attempted. If 'QTDublinIrish.otf' (or others) are still not available in applications,"
-Write-Host "    a system REBOOT or LOGOFF/LOGON might be necessary for all applications to recognize them."
-Write-Host " 2. Microsoft Outlook installation was checked. If your project requires it, ensure Outlook is also"
-Write-Host "    properly configured with a mail profile."
+Write-Host "Post-script actions that might still be needed depending on output:"
+Write-Host " 1. Custom font installation was attempted. If fonts are not available, a system REBOOT or LOGOFF/LOGON might be necessary."
+Write-Host " 2. Ensure Microsoft Outlook is configured with a mail profile if the project requires it."
+Write-Host " 3. If Python/Pip or R/Rscript steps reported issues, manually verify their installation and PATH after restarting your shell."
 
 Read-Host -Prompt "Script finished. Press Enter to exit."
