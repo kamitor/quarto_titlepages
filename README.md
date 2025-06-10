@@ -1,5 +1,5 @@
 Set-ExecutionPolicy Bypass -Scope Process -Force
-
+.\Main-Installer.ps1 *>&1 | Tee-Object -FilePath ".\install_log.txt"
 
 pip install win32
 
