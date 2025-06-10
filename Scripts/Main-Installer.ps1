@@ -256,22 +256,26 @@ Function Test-IsTinyTeXInstalled {
     }
 
     $tinytexPathUser = Join-Path $env:APPDATA "TinyTeX"
-    if (Test-Path (Join-Path $tinytexPathUser "bin" "win32" "pdflatex.exe") -PathType Leaf) {
-        Write-Host "TinyTeX found at user path: $tinytexPathUser" -ForegroundColor Green
+    # Path to check for pdflatex.exe based on typical TinyTeX structure and quarto check output
+    # The 'quarto check' output often shows something like 'TinyTeX\bin\windows\'
+    $pdflatexRelativePathSegments = @("bin", "windows", "pdflatex.exe") 
+    $pdflatexFullPath = Join-Path -Path $tinytexPathUser -ChildPath $pdflatexRelativePathSegments
+
+    if (Test-Path $pdflatexFullPath -PathType Leaf) {
+        Write-Host "TinyTeX pdflatex.exe found at user path: $pdflatexFullPath" -ForegroundColor Green
         return $true
     }
     
-    Write-Host "TinyTeX not found at common user path. Trying 'quarto check' for LaTeX detection..."
-    # $quartoCheckOutput = "" # Not needed as we assign directly
-    $exitCode = 1 
+    Write-Host "TinyTeX pdflatex.exe not found via direct path check ($pdflatexFullPath). Trying 'quarto check' for LaTeX detection..."
+    $exitCode = 1 # Default to failure for the 'quarto check' part
     try {
         $OriginalProgressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
         
-        $quartoCheckOutputJson = quarto check --json 2>$null
+        $quartoCheckOutputJson = quarto check --json 2>$null # Suppress stderr for cleaner JSON attempt
         if ($LASTEXITCODE -eq 0 -and $quartoCheckOutputJson) {
              $checkResult = $quartoCheckOutputJson | ConvertFrom-Json -ErrorAction SilentlyContinue
-             if ($checkResult -and $checkResult.formats.pdf.latex) { # Check if property exists and is non-empty/true
+             if ($checkResult -and $checkResult.formats.pdf.latex) { 
                 Write-Host "Quarto check (JSON) indicates a LaTeX distribution is available: $($checkResult.formats.pdf.latex)" -ForegroundColor Green
                 return $true
              } elseif ($checkResult) { 
@@ -283,6 +287,7 @@ Function Test-IsTinyTeXInstalled {
             Write-Host "Quarto check with --json failed (ExitCode: $LASTEXITCODE) or produced no output. Falling back to text check." -ForegroundColor Yellow
         }
 
+        # Fallback to string parsing if JSON failed or no output, or if structure wasn't as expected
         $quartoCheckOutputText = quarto check 2>&1 | Out-String
         if ($LASTEXITCODE -eq 0 -and ($quartoCheckOutputText -match "(?i)LaTeX\s*\[\u2714\]" -or $quartoCheckOutputText -match "(?i)LaTeX\s*\[OK\]" -or $quartoCheckOutputText -match "(?i)Found LaTeX")) {
              Write-Host "Quarto check (text) indicates LaTeX is available." -ForegroundColor Green
@@ -290,17 +295,16 @@ Function Test-IsTinyTeXInstalled {
         } else {
             Write-Host "Quarto check (text) does not confirm LaTeX (ExitCode: $LASTEXITCODE). Output (first 300 chars): $($quartoCheckOutputText | Select-Object -First 300)" -ForegroundColor Yellow
         }
-        $exitCode = $LASTEXITCODE 
+        $exitCode = $LASTEXITCODE # Capture exit code from the last 'quarto check' text attempt
     } catch {
-        # $quartoCheckOutput = $_.Exception.Message # This variable isn't used after this
-        Write-Warning "Exception during Quarto check: $($_.Exception.Message)"
-        $exitCode = -1 
+        Write-Warning "Exception during Quarto check for TinyTeX: $($_.Exception.Message)"
+        $exitCode = -1 # Indicate an error from the try-catch block itself
     } finally {
-        $ProgressPreference = $OriginalProgressPreference
+        $ProgressPreference = $OriginalProgressPreference # Reset preference
     }
 
-    if ($exitCode -ne 0) { 
-        Write-Host "Attempt to use 'quarto check' for TinyTeX detection failed or did not find LaTeX. Last ExitCode: $exitCode" -ForegroundColor Yellow
+    if ($exitCode -ne 0) { # This condition reflects if the 'quarto check' attempts failed or didn't find LaTeX
+        Write-Host "Attempt to use 'quarto check' for TinyTeX detection failed or did not find LaTeX. Last ExitCode for 'quarto check': $exitCode" -ForegroundColor Yellow
     }
     
     Write-Host "TinyTeX not definitively detected after all checks." -ForegroundColor Yellow
