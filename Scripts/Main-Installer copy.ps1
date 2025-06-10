@@ -420,25 +420,25 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         Test-IsGitInstalled # Re-test and display status
     }
 
-    # 3. Python & Pip
+    # 3. Python & Pip (Using the "Silent Fix" version from previous discussions)
     Write-Host "`n--- Processing Python & Pip ---" -ForegroundColor Cyan
     $pythonSuccessfullyInstalledOrPresent = $false
-    $pythonExeToUse = $null # Will hold the path to the non-stub python if found
-    $attemptedStubRemovalThisRun = $false # Reset for each run of this block if script is re-entrant
+    $pythonExeToUse = $null
+    $attemptedStubRemovalThisRun = $false 
 
-    Function _Private_HandlePythonDetectionAndStub {
+    Function _Private_TestAndSetPythonVariables {
         param(
             [Parameter(Mandatory=$false)]
-            [switch]$AfterUserInstallPrompt
+            [switch]$AfterInstallAttempt
         )
         $localPythonExePath = $null
         $localPythonFound = $false
-        $isStubProblemCurrently = $false
+        $isStubProblem = $false # Local flag for stub detection in this function run
 
         $allPythons = Get-Command python -All -ErrorAction SilentlyContinue
         
         if ($allPythons) {
-            if ($AfterUserInstallPrompt) { Write-Host "Re-evaluating 'python' command(s) after user was prompted to install:" -ForegroundColor DarkGray }
+            if ($AfterInstallAttempt) { Write-Host "Re-evaluating 'python' command(s) post-install/attempt:" -ForegroundColor DarkGray }
             else { Write-Host "Initial 'python' command(s) found on PATH:" -ForegroundColor DarkGray }
             $allPythons | ForEach-Object { Write-Host "  - $($_.Source)" -ForegroundColor DarkGray }
 
@@ -452,93 +452,140 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
             if ($localPythonExePath) {
                 Write-Host "Selected non-stub Python for evaluation: $localPythonExePath" -ForegroundColor DarkGreen
                 $script:pythonExeToUse = $localPythonExePath
-                # Direct version check for the selected Python
                 if (Test-Path $script:pythonExeToUse -PathType Leaf) {
                     $output = & $script:pythonExeToUse --version 2>&1 | Out-String
                     if ($LASTEXITCODE -eq 0 -and $output -match "Python \d+\.\d+") {
                         Write-Host "Verified Python version from '$($script:pythonExeToUse)': $($output.Trim())" -ForegroundColor Green
                         $localPythonFound = $true
                     } else {
-                        Write-Warning "Path $script:pythonExeToUse exists but --version failed. Exit: $LASTEXITCODE, Output: $output"
+                        Write-Warning "Path $script:pythonExeToUse exists but did not respond as expected to --version. Exit: $LASTEXITCODE, Output: $output"
                         $script:pythonExeToUse = $null 
                     }
                 } else {
-                     Write-Warning "Path $script:pythonExeToUse not found or not a file."
+                     Write-Warning "Path $script:pythonExeToUse does not exist or is not a file."
                      $script:pythonExeToUse = $null
                 }
             } elseif ($allPythons[0].Source -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                Write-Warning "CRITICAL: The primary 'python.exe' found is the Windows Store stub: $($allPythons[0].Source)"
-                $isStubProblemCurrently = $true
-                # No automatic removal, just strong warning
-                Write-Warning "This stub WILL prevent proper Python operation and tool installation (pip)."
-                Write-Warning "It is STRONGLY RECOMMENDED to disable 'App execution aliases' for 'python.exe' and 'python3.exe' in Windows Settings."
-                Write-Warning "To do this: Search for 'Manage app execution aliases' in Windows Start, then turn them OFF."
-                Write-Warning "After disabling them, CLOSE this PowerShell window and RE-RUN this script in a new Administrator PowerShell session."
-                $Global:OverallSuccess = $false # Mark as failure due to persistent stub
-                $script:pythonExeToUse = $allPythons[0].Source # Keep for diagnostics
+                Write-Warning "Primary 'python.exe' found is the Windows Store stub: $($allPythons[0].Source)"
+                $isStubProblem = $true # Mark that stub is currently the problem
+                if (-not $script:attemptedStubRemovalThisRun) {
+                    Write-Host "Attempting to silently remove Python App Execution Alias stubs from registry (once per run)..." -ForegroundColor Yellow
+                    $script:attemptedStubRemovalThisRun = $true
+                    $stubRegistryPaths = @(
+                        "HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths\python.exe",
+                        "HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths\python3.exe"
+                    )
+                    $anyRemovalAttempted = $false
+                    foreach ($stubRegPath in $stubRegistryPaths) {
+                        if (Test-Path $stubRegPath) {
+                            try {
+                                Remove-Item -Path $stubRegPath -Force -ErrorAction Stop
+                                Write-Host "Successfully removed registry entry: $stubRegPath" -ForegroundColor Green
+                                $anyRemovalAttempted = $true
+                            } catch {
+                                Write-Warning "Failed to remove registry entry $stubRegPath : $($_.Exception.Message)"
+                            }
+                        } else {
+                             Write-Host "Registry entry for stub not found (already addressed or never existed): $stubRegPath" -ForegroundColor DarkGray
+                        }
+                    }
+                    if ($anyRemovalAttempted) {
+                        Write-Host "Registry modification attempted for stubs. Refreshing PATH and re-evaluating Python detection." -ForegroundColor DarkGray
+                        Refresh-CurrentSessionPath
+                        Start-Sleep -Seconds 1 
+                        return _Private_TestAndSetPythonVariables -AfterInstallAttempt:$true 
+                    } else {
+                         Write-Warning "No stubs found in registry to remove, yet a stub path is still primary. This is unusual. Manual intervention for Python stub is likely required."
+                         $script:pythonExeToUse = $allPythons[0].Source 
+                         $Global:OverallSuccess = $false # Mark as failure due to persistent stub
+                    }
+                } else { 
+                     Write-Warning "Windows Store stub for Python persists even after removal attempt. Manual intervention (disabling 'App execution aliases' in Windows Settings) AND a SHELL RESTART are strongly recommended."
+                     $script:pythonExeToUse = $allPythons[0].Source 
+                     $Global:OverallSuccess = $false 
+                }
             }
         } else { 
-            if ($AfterUserInstallPrompt) { Write-Warning "Get-Command python still found no python.exe after user install prompt."}
+            if ($AfterInstallAttempt) { Write-Warning "Get-Command python still found no python.exe after install/modification attempt."}
             else { Write-Host "No 'python' command initially found on PATH." }
         }
+        
+        if (-not $localPythonFound -and -not $isStubProblem) { # If no non-stub python found AND it wasn't identified as a stub problem (e.g. just nothing found)
+            $testResult = Test-IsPythonInstalled # General check
+            if ($testResult) {
+                $foundPythonPath = (Get-Command python -ErrorAction SilentlyContinue).Source
+                if ($foundPythonPath -and $foundPythonPath -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                    $script:pythonExeToUse = $foundPythonPath
+                    $localPythonFound = $true
+                } elseif ($foundPythonPath) { # Test-IsPythonInstalled found the stub
+                    Write-Warning "Test-IsPythonInstalled identified the Windows Store stub: $foundPythonPath. This is problematic."
+                    $Global:OverallSuccess = $false # Mark as failure
+                }
+            }
+        }
         $script:pythonSuccessfullyInstalledOrPresent = $localPythonFound
-        return $localPythonFound # Return if a non-stub, working Python was found
+        return $localPythonFound
     }
 
-    _Private_HandlePythonDetectionAndStub | Out-Null
+    _Private_TestAndSetPythonVariables | Out-Null
 
-    if (-not $pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) { # If no usable python and stub didn't cause hard fail
-        Write-Host "Python not found or problematic. Will guide user through manual installation..."
-        if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "User-Guided Python Installation") {
-            Write-Host "User has confirmed Python installation. Refreshing PATH and re-evaluating Python..." -ForegroundColor DarkGray
-            Refresh-CurrentSessionPath 
-            Start-Sleep -Seconds 2 # Give PATH a moment
-            
-            _Private_HandlePythonDetectionAndStub -AfterUserInstallPrompt:$true | Out-Null
-
-            if ($pythonExeToUse -and (Test-Path $pythonExeToUse -PathType Leaf) -and ($pythonExeToUse -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe")) {
-                Write-Host "Python executable for PATH setup post-user-install: $pythonExeToUse" -ForegroundColor DarkGreen
-                $pythonDir = Split-Path $pythonExeToUse
-                $scriptsDir = Join-Path $pythonDir "Scripts" 
+    if (-not $pythonSuccessfullyInstalledOrPresent) { # Only attempt install if no usable Python was found and stub issue wasn't a hard stop
+        if ($Global:OverallSuccess) { # Proceed with install attempt only if stub issue didn't already halt success
+            Write-Host "Python not usable or not found by initial checks. Attempting installation..."
+            if (Invoke-SubScript -SubScriptName "Install-Python.ps1" -StepDescription "Python Installation") {
+                Write-Host "Python installation sub-script completed. Refreshing PATH and re-evaluating Python..." -ForegroundColor DarkGray
+                Refresh-CurrentSessionPath 
+                Start-Sleep -Seconds 1
                 
-                if ($pythonDir -and ($env:Path -notlike "*$(Split-Path $pythonDir -Leaf)*")) { 
-                    $env:Path = "$pythonDir;$($env:Path)"
-                    Write-Host "Added '$pythonDir' to session PATH." -ForegroundColor DarkGray
+                _Private_TestAndSetPythonVariables -AfterInstallAttempt:$true | Out-Null
+
+                if ($pythonExeToUse -and (Test-Path $pythonExeToUse -PathType Leaf) -and ($pythonExeToUse -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe")) {
+                    Write-Host "Python executable for PATH setup post-install: $pythonExeToUse" -ForegroundColor DarkGreen
+                    $pythonDir = Split-Path $pythonExeToUse
+                    $scriptsDir = Join-Path $pythonDir "Scripts" 
+                    
+                    if ($pythonDir -and ($env:Path -notlike "*$(Split-Path $pythonDir -Leaf)*")) { 
+                        $env:Path = "$pythonDir;$($env:Path)"
+                        Write-Host "Added '$pythonDir' to session PATH." -ForegroundColor DarkGray
+                    }
+                    if ($scriptsDir -and (Test-Path $scriptsDir -PathType Container) -and ($env:Path -notlike "*$(Split-Path $scriptsDir -Leaf)*")) { 
+                        $env:Path = "$scriptsDir;$($env:Path)"
+                        Write-Host "Added '$scriptsDir' to session PATH." -ForegroundColor DarkGray
+                    }
+                    Write-Host "Refreshed session PATH after Python install (first 300 chars): $($env:Path | Select-Object -First 300)..." -ForegroundColor DarkGray
+                } elseif ($pythonExeToUse -and $pythonExeToUse -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                    Write-Warning "Only the Windows Store Python stub was found after install: $pythonExeToUse. PATH modification skipped."
+                } else {
+                     Write-Warning "Could not definitively locate a usable (non-stub) python.exe for PATH modification after install."
                 }
-                if ($scriptsDir -and (Test-Path $scriptsDir -PathType Container) -and ($env:Path -notlike "*$(Split-Path $scriptsDir -Leaf)*")) { 
-                    $env:Path = "$scriptsDir;$($env:Path)"
-                    Write-Host "Added '$scriptsDir' to session PATH." -ForegroundColor DarkGray
-                }
-            } elseif ($pythonExeToUse -and $pythonExeToUse -like "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                Write-Warning "Windows Store Python stub is still primary after user install. PATH modification skipped. Manual alias disabling is CRITICAL."
-            } else {
-                 Write-Warning "Could not locate a usable python.exe for PATH modification even after user install."
-            }
-            
-            if (Test-IsPythonInstalled) { # This relies on Get-Command
-                $pythonSuccessfullyInstalledOrPresent = $true 
-                Write-Host "Python is now detected by Test-IsPythonInstalled after user installation." -ForegroundColor Green
-                # Re-confirm $pythonExeToUse with the one Test-IsPythonInstalled found, if it's not a stub
-                $currentFoundPython = (Get-Command Python -ErrorAction SilentlyContinue).Source
-                if ($currentFoundPython -and $currentFoundPython -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
-                    $pythonExeToUse = $currentFoundPython
-                } elseif ($currentFoundPython) { # Stub is still what Get-Command finds
-                    Write-Warning "Test-IsPythonInstalled passed, but Get-Command still points to the stub: $currentFoundPython. Pip/package steps will fail."
+                
+                if (Test-IsPythonInstalled) { 
+                    $pythonSuccessfullyInstalledOrPresent = $true 
+                    Write-Host "Python is now detected by Test-IsPythonInstalled after installation attempts." -ForegroundColor Green
+                    $currentFoundPythonForUse = (Get-Command Python -ErrorAction SilentlyContinue).Source
+                    if ($currentFoundPythonForUse -and $currentFoundPythonForUse -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
+                        $pythonExeToUse = $currentFoundPythonForUse # Ensure $pythonExeToUse is the one found by Test-IsPythonInstalled
+                    } elseif ($currentFoundPythonForUse) {
+                        Write-Warning "Test-IsPythonInstalled passed, but Get-Command still points to the stub: $currentFoundPythonForUse. Python operations will likely fail."
+                        $Global:OverallSuccess = $false 
+                    }
+                } else {
+                    Write-Error "Python is STILL NOT DETECTED by Test-IsPythonInstalled after install and PATH attempts."
                     $Global:OverallSuccess = $false 
                 }
-            } else {
-                Write-Error "Python is STILL NOT DETECTED by Test-IsPythonInstalled after user install prompt and PATH refresh."
-                Write-Warning "Ensure 'Add Python to PATH' was checked during manual install. A new PowerShell session might be needed."
-                if ($Global:OverallSuccess) { $Global:OverallSuccess = $false }
+            } else { 
+                 Write-Error "Python installation sub-script failed."
+                 $Global:OverallSuccess = $false 
             }
-        } else { 
-             Write-Error "User-guided Python installation sub-script itself reported an issue or was exited prematurely."
-             $Global:OverallSuccess = $false 
+        } else {
+            if (-not $pythonSuccessfullyInstalledOrPresent) { # If initial checks failed and we didn't try to install (e.g. stub caused OverallSuccess to be false)
+                 Write-Warning "Python setup was not fully successful due to earlier critical issues (e.g., persistent Windows Store stub)."
+            }
         }
     }
     
-    # Pip processing (mostly same as before, but relies on $pythonSuccessfullyInstalledOrPresent and $pythonExeToUse)
-    if ($pythonSuccessfullyInstalledOrPresent -and $Global:OverallSuccess) {
+    # Pip processing relies on $pythonSuccessfullyInstalledOrPresent and $pythonExeToUse
+    if ($pythonSuccessfullyInstalledOrPresent) {
         Write-Host "Python believed to be present. Checking for Pip..." -ForegroundColor DarkGray
         if (-not (Test-IsPipInstalled)) { 
             Write-Warning "Pip was NOT found by Test-IsPipInstalled. Attempting to ensurepip..."
@@ -547,7 +594,7 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
                 if ($pythonExeToUse -and (Test-Path $pythonExeToUse -PathType Leaf) -and ($pythonExeToUse -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe")) {
                     $pythonCmdForEnsurePip = $pythonExeToUse
                 } else { 
-                    Write-Warning "No definitive non-stub Python identified for ensurepip. Re-checking PATH for 'python'."
+                    Write-Warning "No definitive non-stub Python identified from previous steps for ensurepip. Re-checking PATH for 'python' to use for ensurepip."
                     $firstPythonOnPath = (Get-Command python -ErrorAction SilentlyContinue).Source
                     if ($firstPythonOnPath -and $firstPythonOnPath -notlike "*\AppData\Local\Microsoft\WindowsApps\python.exe") {
                         $pythonCmdForEnsurePip = $firstPythonOnPath
@@ -560,14 +607,14 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
                     }
                 }
 
-                if ($pythonCmdForEnsurePip -and $Global:OverallSuccess) {
+                if ($pythonCmdForEnsurePip -and $Global:OverallSuccess) { # Check OverallSuccess again in case stub detection set it to false
                     Write-Host "Using Python for ensurepip: $pythonCmdForEnsurePip" -ForegroundColor DarkGray
                     Write-Host "Executing: & '$pythonCmdForEnsurePip' -m ensurepip --upgrade" 
                     & $pythonCmdForEnsurePip -m ensurepip --upgrade 
                     if ($LASTEXITCODE -ne 0) {
                         Write-Error "Attempt to run '$pythonCmdForEnsurePip -m ensurepip --upgrade' failed with exit code $LASTEXITCODE."
                         if ($LASTEXITCODE -eq 9009) { Write-Error "Ensurepip: Python command not found (exit 9009)." }
-                         $Global:OverallSuccess = $false 
+                         $Global:OverallSuccess = $false # ensurepip failure is a problem for python packages
                     } else {
                         Write-Host "'$pythonCmdForEnsurePip -m ensurepip --upgrade' executed. Refreshing PATH..." -ForegroundColor Green
                         Refresh-CurrentSessionPath 
@@ -590,16 +637,18 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
             if (Test-IsPipInstalled) {
                 Write-Host "Pip is now successfully detected." -ForegroundColor Green
             } else {
-                 if ($Global:OverallSuccess){ 
+                 if ($Global:OverallSuccess){ # Only error if not already failed due to stub etc.
                     Write-Error "Pip is STILL NOT DETECTED even after ensurepip attempt."
-                    Write-Warning "Python packages cannot be installed. Ensure 'Add Python to PATH' was checked. A new PowerShell session might be required."
+                    Write-Warning "Python packages cannot be installed by this script run."
+                    # We don't set Global:OverallSuccess to false here because Python itself might be fine, just pip is missing for now.
+                    # The package installation step will note this.
                  }
             }
         } else {
             Write-Host "Pip was already detected." -ForegroundColor Green
         }
     } else {
-        Write-Warning "Skipping Pip detection and ensurepip because Python was not successfully installed or configured due to earlier issues."
+        Write-Warning "Skipping Pip detection and ensurepip because Python was not successfully installed or configured."
     }
 
     # 4. R
