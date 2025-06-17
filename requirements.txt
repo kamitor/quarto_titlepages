@@ -6,6 +6,7 @@ matplotlib
 seaborn
 openpyxl
 requests
+readr
 # You can also specify versions, e.g.:
 # pandas>=2.0.0,<3.0.0
 # requests==2.25.1

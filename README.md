@@ -4,9 +4,15 @@ and then
 
 .\Main-Installer.ps1 *>&1 | Tee-Object -FilePath ".\install_log.txt"
 
+
+python -m venv venv
+venv\Scripts\activate
+
+
+
 pip install win32
 
-
+pip install pywin32
 
 Cleandata fix Masterdatabase naar CSV gaat toch niet goed
 

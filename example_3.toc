@@ -1,0 +1,14 @@
+\contentsline {chapter}{\numberline {1}Executive Summary}{1}{chapter.1}%
+\contentsline {chapter}{\numberline {2}Introduction: The Imperative of Resilience in Modern Logistics}{2}{chapter.2}%
+\contentsline {chapter}{\numberline {3}Overall Resilience Profile: A Strategic View of Suplacon's Operations}{3}{chapter.3}%
+\contentsline {chapter}{\numberline {4}Detailed Resilience Dimensions: Unpacking Suplacon's Capabilities}{5}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Upstream Resilience Dimensions}{5}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Internal Operational Resilience Dimensions}{6}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Downstream Resilience Dimensions}{7}{section.4.3}%
+\contentsline {chapter}{\numberline {5}Materials and Methods}{9}{chapter.5}%
+\contentsline {chapter}{\numberline {6}Key Insights \& Financial Implications for Suplacon}{10}{chapter.6}%
+\contentsline {chapter}{\numberline {7}Strategic Recommendations for Enhanced Resilience \& Financial Performance}{12}{chapter.7}%
+\contentsline {chapter}{\numberline {8}Author Contributions}{14}{chapter.8}%
+\contentsline {chapter}{\numberline {9}Acknowledgments}{15}{chapter.9}%
+\contentsline {chapter}{\numberline {10}References}{16}{chapter.10}%
+\providecommand \tocbasic@end@toc@file {}\tocbasic@end@toc@file 

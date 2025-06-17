@@ -198,6 +198,27 @@ Function Test-IsPipInstalled {
     return $false
 }
 
+Function Test-IsRStudioInstalled {
+    Write-Host "Checking for RStudio (via Chocolatey)..."
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+        $rstudioPackageInfo = ""
+        try {
+            $rstudioPackageInfo = choco list --local-only --exact --name-only --limit-output rstudio -r 
+        } catch {
+             Write-Warning "Error checking for RStudio with choco list: $($_.Exception.Message)"
+        }
+
+        if ($rstudioPackageInfo -match "rstudio") { 
+            Write-Host "RStudio (Chocolatey package 'rstudio') is listed as installed." -ForegroundColor Green
+            # Optionally, check for the executable if you know its common path, though less reliable than choco list
+            # For example: if (Test-Path "$($env:ProgramFiles)\RStudio\rstudio.exe" -PathType Leaf) { Write-Host "RStudio executable found."}
+            return $true
+        }
+    }
+    Write-Host "RStudio (Chocolatey package 'rstudio') not found or not listed by Chocolatey." -ForegroundColor Yellow
+    return $false
+}
+
 Function Test-IsRInstalled {
     Write-Host "Checking for R and Rscript..."
     $rFound = Get-Command R -ErrorAction SilentlyContinue
@@ -602,44 +623,65 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
         Write-Warning "Skipping Pip detection and ensurepip because Python was not successfully installed or configured due to earlier issues."
     }
 
-    # 4. R
+        # 4. R
     Write-Host "`n--- Processing R ---" -ForegroundColor Cyan
+    $Global:RScriptPath = $null # Initialize a global variable to store the path to Rscript.exe
+
     if (-not (Test-IsRInstalled)) {
-        if (Test-IsChocolateyInstalled) { # Only try if Choco is there
+        if (Test-IsChocolateyInstalled) {
             if (Invoke-SubScript -SubScriptName "Install-R.ps1" -StepDescription "R Installation") {
-                Refresh-CurrentSessionPath
-                $rInstallDirs = @(
+                Refresh-CurrentSessionPath # Attempt to refresh PATH
+                Write-Host "R installation script completed. Attempting to locate Rscript.exe directly..." -ForegroundColor DarkGray
+                
+                # Try to find Rscript directly in common installation paths
+                $commonRBasePaths = @(
                     "$($env:ProgramFiles)\R",
-                    "$($env:ProgramW6432)\R" 
-                )
-                foreach ($rBaseDir in $rInstallDirs | Select-Object -Unique) { 
-                    if ($rBaseDir -and (Test-Path $rBaseDir -PathType Container)) { 
-                        $rVersionDirs = Get-ChildItem -Path $rBaseDir -Directory -ErrorAction SilentlyContinue | Where-Object {$_.Name -match "^R-\d+\.\d+\.\d+$"}
-                        foreach ($rVersionDir in $rVersionDirs) {
-                            $rBinPathX64 = Join-Path $rVersionDir.FullName "bin\x64" 
-                            if (Test-Path $rBinPathX64 -PathType Container -and ($env:Path -notlike "*$(Split-Path $rBinPathX64 -Leaf)*")) { 
-                                Write-Host "Adding R bin x64 path to session PATH: $rBinPathX64" -ForegroundColor DarkGray
-                                $env:Path = "$rBinPathX64;$($env:Path)"
-                            }
-                            $rBinPathi386 = Join-Path $rVersionDir.FullName "bin\i386"
-                             if (Test-Path $rBinPathi386 -PathType Container -and ($env:Path -notlike "*$(Split-Path $rBinPathi386 -Leaf)*")) { 
-                                Write-Host "Adding R i386 bin path to session PATH: $rBinPathi386" -ForegroundColor DarkGray
-                                $env:Path = "$rBinPathi386;$($env:Path)"
+                    "$($env:ProgramW6432)\R" # For 64-bit Program Files
+                ) | Select-Object -Unique
+                
+                foreach ($rBasePath in $commonRBasePaths) {
+                    if ($rBasePath -and (Test-Path $rBasePath -PathType Container)) {
+                        $rVersionDirs = Get-ChildItem -Path $rBasePath -Directory -ErrorAction SilentlyContinue | Where-Object {$_.Name -match "^R-\d+\.\d+\.\d+$"} | Sort-Object Name -Descending
+                        if ($rVersionDirs) {
+                            $latestRVersionDir = $rVersionDirs[0].FullName
+                            $rscriptExePath = Join-Path $latestRVersionDir "bin\Rscript.exe"
+                            $rExePath = Join-Path $latestRVersionDir "bin\R.exe"
+                            if (Test-Path $rscriptExePath -PathType Leaf) {
+                                Write-Host "Found Rscript.exe at: $rscriptExePath" -ForegroundColor Green
+                                $Global:RScriptPath = $rscriptExePath
+                                # Add its directory to the current session's PATH if not already there
+                                $rBinDir = Split-Path $rscriptExePath
+                                if ($env:PATH -notlike "*$($rBinDir)*") {
+                                    Write-Host "Temporarily adding $rBinDir to session PATH." -ForegroundColor DarkGray
+                                    $env:PATH = "$rBinDir;$($env:PATH)"
+                                }
+                                break # Found it, no need to check other base paths
                             }
                         }
                     }
                 }
-            } # No else here, just proceed to Test-IsRInstalled
+                if (-not $Global:RScriptPath) {
+                    Write-Warning "Could not locate Rscript.exe directly after installation. PATH might not have updated yet."
+                }
+            } 
         } else {
             Write-Warning "Skipping R installation: Chocolatey is not available."
-            $Global:OverallSuccess = $false
         }
-        if (-not (Test-IsRInstalled)) {
+        
+        # Re-test using the updated PATH (if direct find failed) or the original PATH
+        Test-IsRInstalled # This will show if Get-Command now finds it
+        if ($Global:RScriptPath) {
+             Write-Host "Using Rscript path for R package installation: $($Global:RScriptPath)" -ForegroundColor Yellow
+        } elseif (-not (Get-Command Rscript -ErrorAction SilentlyContinue)) {
              Write-Warning "R (R.exe or Rscript.exe) not detected after installation attempt. R packages cannot be installed by this script run."
-             # Don't set Global:OverallSuccess to false just for R, let R packages step fail if it's a problem
         }
+
     } else {
-        Write-Host "R and Rscript already detected." -ForegroundColor Green
+        Write-Host "R and Rscript already detected by Get-Command." -ForegroundColor Green
+        $Global:RScriptPath = (Get-Command Rscript -ErrorAction SilentlyContinue).Source
+         if ($Global:RScriptPath) {
+             Write-Host "Using existing Rscript path: $($Global:RScriptPath)" -ForegroundColor DarkGray
+         }
     }
 
 
@@ -660,6 +702,7 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
     } else {
         Write-Host "Quarto CLI already detected." -ForegroundColor Green
     }
+
 
     # 6. Visual Studio Code
     Write-Host "`n--- Processing Visual Studio Code ---" -ForegroundColor Cyan
@@ -689,12 +732,21 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
 
     # 8. R Packages
     Write-Host "`n--- Processing R Packages ---" -ForegroundColor Cyan
-    if (Test-IsRInstalled) { # R and Rscript must be findable
+    if ($Global:RScriptPath -and (Test-Path $Global:RScriptPath -PathType Leaf)) {
+        Write-Host "Attempting to install R packages using Rscript at: $($Global:RScriptPath)"
+        # Pass the RScriptPath to the Install-RPackages.ps1 script
+        # The sub-script needs to be able to accept this as a parameter.
+        Invoke-SubScript -SubScriptName "Install-RPackages.ps1" -StepDescription "R Packages Installation" 
+    } elseif (Get-Command Rscript -ErrorAction SilentlyContinue) {
+        Write-Host "Rscript found via Get-Command. Proceeding with R package installation."
+        $Global:RScriptPath = (Get-Command Rscript).Source # Ensure it's set if found this way
         Invoke-SubScript -SubScriptName "Install-RPackages.ps1" -StepDescription "R Packages Installation"
     } else { 
-        Write-Warning "Skipping R packages: R/Rscript is not available on PATH for this session."
+        Write-Warning "Skipping R packages: Rscript.exe could not be located. Ensure R is installed and its 'bin' directory is on the PATH."
+        Write-Warning "You may need to close this PowerShell window and open a new one for PATH changes to take effect, then re-run relevant parts or install R packages manually."
     }
 
+    
     # 9. TinyTeX 
     Write-Host "`n--- Processing TinyTeX (for Quarto PDF output) ---" -ForegroundColor Cyan
     if (Test-IsQuartoCliInstalled) {
@@ -709,6 +761,8 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
     } else { 
         Write-Warning "Skipping TinyTeX: Quarto CLI is not available." 
     }
+    
+    
 
     # 10. 'nmfs-opensci/quarto_titlepages' Extension
     Write-Host "`n--- Processing nmfs-opensci/quarto_titlepages Extension ---" -ForegroundColor Cyan
@@ -751,6 +805,22 @@ if ($Global:OverallSuccess -and (Test-IsChocolateyInstalled)) {
     $Global:OverallSuccess = $false
 }
 
+ Write-Host "`n--- Processing RStudio IDE ---" -ForegroundColor Cyan
+    if (Test-IsChocolateyInstalled) { # RStudio installation relies on Chocolatey
+        if (-not (Test-IsRStudioInstalled)) {
+            if (Invoke-SubScript -SubScriptName "Install-RStudio.ps1" -StepDescription "RStudio IDE Installation") {
+                # No specific PATH refresh needed for RStudio GUI itself, but good to re-test
+                Test-IsRStudioInstalled 
+            } else {
+                Write-Warning "RStudio installation sub-script reported an issue or was exited."
+            }
+        } else {
+            Write-Host "RStudio already detected." -ForegroundColor Green
+        }
+    } else {
+         Write-Warning "Skipping RStudio IDE installation: Chocolatey is not available."
+         # Decide if this should set $Global:OverallSuccess = $false if RStudio is critical
+    }
 
 # 12. Install Custom Fonts
 Write-Host "`n--- Processing Custom Fonts ---" -ForegroundColor Cyan

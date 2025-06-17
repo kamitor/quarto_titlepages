@@ -62,6 +62,27 @@ params:
   company: "Placeholder Company"
 ---
 
+---
+title: "Strategic Resilience and Financial Performance Profile for `r params$company`"
+# ... (rest of your yaml) ...
+params:
+  company: "Placeholder Company"
+---
+
+```{r package-installer, include=FALSE, echo=FALSE}
+# This chunk will check for and install missing packages automatically.
+# It ensures that the R environment Quarto is using has the necessary tools.
+
+required_packages <- c("readr", "dplyr", "stringr", "tidyr", "ggplot2", "fmsb", "scales")
+missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
+
+if (length(missing_packages) > 0) {
+  message("Installing missing R packages: ", paste(missing_packages, collapse = ", "))
+  install.packages(missing_packages, repos = "https://cran.rstudio.com/", type = "binary")
+} else {
+  message("All required R packages are already installed.")
+}
+```
 ```{r setup, include=FALSE}
 library(readr)
 library(dplyr)
